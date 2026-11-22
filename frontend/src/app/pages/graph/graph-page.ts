@@ -16,8 +16,8 @@ import { Api } from '../../core/api.service';
 import { GraphData, PairView } from '../../core/models';
 import { PairEvidence } from '../../shared/pair-evidence';
 
-const PALETTE = ['#6e3b2b', '#2f6f8f', '#7a8f2f', '#8f2f6f', '#b5762b', '#2f8f6a', '#5b4fa3', '#a33f3f', '#3f5aa3', '#6b6b2f'];
-const LAMP_BORDER = ['#3f7a3a', '#d9a514', '#e07a10', '#c0392b'];
+const PALETTE = ['#A33B24', '#1D2A44', '#5E7A3A', '#6E2F7E', '#B5762B', '#2F6F6A', '#4A5C9A', '#872F1C', '#6B6B2F', '#5E5A56'];
+const LAMP_BORDER = ['#3F7A3A', '#C8961A', '#A33B24', '#6E2F7E', '#0F1626'];
 
 @Component({
   selector: 'app-graph-page',
@@ -53,7 +53,7 @@ const LAMP_BORDER = ['#3f7a3a', '#d9a514', '#e07a10', '#c0392b'];
   `,
   styles: `
     .layout { display: grid; grid-template-columns: 1fr 420px; gap: 16px; }
-    .canvas { height: 72vh; padding: 0; }
+    .canvas { height: 72vh; padding: 0; overflow: hidden; }
     .side { max-height: 72vh; overflow: auto; }
     @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
   `,
@@ -95,7 +95,7 @@ export class GraphPage implements AfterViewInit, OnDestroy {
             id: n.id,
             label: `${n.id}\n${(n.title ?? '').slice(0, 34)}`,
             color: color(n.campaign),
-            border: LAMP_BORDER[n.lamp] ?? '#999',
+            border: LAMP_BORDER[n.lamp] ?? '#D8CFC5',
           },
         })),
         ...d.edges.map((e) => ({
@@ -123,25 +123,26 @@ export class GraphPage implements AfterViewInit, OnDestroy {
             'text-margin-y': 6,
             width: 34,
             height: 34,
-            color: '#1f1e1e',
+            color: '#252321',
+            'font-family': 'Plus Jakarta Sans, Inter, sans-serif',
           },
         },
         {
           selector: 'edge',
           style: {
             width: 'mapData(score, 0, 1, 1, 9)',
-            'line-color': '#8f8378',
+            'line-color': '#5E5A56',
             'curve-style': 'bezier',
             label: 'data(label)',
             'font-size': 9,
-            'text-background-color': '#f7f4ee',
+            'text-background-color': '#FAF6F0',
             'text-background-opacity': 1,
           },
         },
-        { selector: 'edge[kind = "strong"]', style: { 'line-color': '#1f1e1e' } },
-        { selector: 'edge[kind = "family"]', style: { 'line-style': 'dashed', 'line-color': '#6e3b2b' } },
+        { selector: 'edge[kind = "strong"]', style: { 'line-color': '#0F1626' } },
+        { selector: 'edge[kind = "family"]', style: { 'line-style': 'dashed', 'line-color': '#A33B24' } },
         { selector: 'edge[kind = "weak"]', style: { opacity: 0.35 } },
-        { selector: ':selected', style: { 'overlay-opacity': 0.15, 'overlay-color': '#c0392b' } },
+        { selector: ':selected', style: { 'overlay-opacity': 0.15, 'overlay-color': '#A33B24' } },
       ],
       layout: { name: 'cose', animate: false, idealEdgeLength: () => 140, nodeRepulsion: () => 9000, randomize: false },
     });

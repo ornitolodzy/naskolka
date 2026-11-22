@@ -44,6 +44,7 @@ import { PairView, RELATION_PL } from '../core/models';
   styles: `
     .channels { margin: 10px 0; display: grid; gap: 4px; }
     .ch-row { display: grid; grid-template-columns: 120px 1fr 44px; gap: 8px; align-items: center; }
+    @media (max-width: 760px) { .ch-row { grid-template-columns: 90px 1fr 40px; } }
   `,
 })
 export class PairEvidence {
