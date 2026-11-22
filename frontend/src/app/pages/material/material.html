@@ -1,0 +1,202 @@
+@if (view(); as v) {
+  <div class="spread">
+    <div>
+      <div class="muted small"><a routerLink="/materialy">Materiały</a> / {{ v.source }}</div>
+      <h1>{{ v.id }}: {{ f()?.summary?.title || v.label }}</h1>
+    </div>
+    <div class="row">
+      <button class="btn ghost" (click)="reprocess()" [disabled]="busy()">Przetwórz ponownie</button>
+      @if (v.source !== 'dataset') {
+        <button class="btn ghost" (click)="remove()">Usuń</button>
+      }
+    </div>
+  </div>
+
+  @if (v.status === 'pending' || v.status === 'processing') {
+    <div class="notice warn">Analiza w toku ({{ v.status }}): ekstrakcja cech, OCR, twarze, korelacja…</div>
+  }
+  @if (v.status === 'error') {
+    <div class="notice bad">Błąd przetwarzania: {{ v.error }}</div>
+  }
+
+  @if (f(); as f) {
+    <div class="hero" style="margin-top: 14px">
+      <section class="card">
+        <h3>Lampka ryzyka</h3>
+        <app-lamp [lamp]="v.lamp" />
+        <div class="row small" style="margin-top: 12px">
+          <span class="muted">Ocena analityka (uczy detektor AI):</span>
+          <button class="btn ghost" (click)="label(true)" [class.active]="v.labels['ai'] === 'true'">to jest AI</button>
+          <button class="btn ghost" (click)="label(false)">to nie AI</button>
+          @if (v.labels['ai']) { <span class="chip">oznaczone: {{ v.labels['ai'] === 'true' ? 'AI' : 'nie AI' }}</span> }
+        </div>
+      </section>
+
+      @if (v.assignment; as a) {
+        <section class="card stack">
+          <h3>Przypisanie do kampanii</h3>
+          <div class="decision">
+            {{ decision[a.decision] }}
+            @if (a.campaign) { <span class="chip strong">{{ a.campaign }}</span> }
+            @if (a.family) { <span class="chip">rodzina {{ a.family }}</span> }
+          </div>
+          <p>{{ a.explanation }}</p>
+          <div class="muted small">Najbliższe materiały (pełne przesłanki poniżej):</div>
+          <div class="row">
+            @for (n of a.neighbours; track $index) {
+              @let other = n.a === v.id ? n.b : n.a;
+              <a class="chip" [class.strong]="n.relation === 'variant' || n.relation === 'duplicate'" [routerLink]="['/materialy', other]">
+                {{ other }} · {{ n.score | number: '1.2-2' }}
+              </a>
+            }
+          </div>
+        </section>
+      }
+    </div>
+
+    <h2 style="margin-top: 24px">Dlaczego powiązano</h2>
+    <div class="grid cols-2">
+      @for (n of v.assignment?.neighbours ?? []; track $index) {
+        @if (n.score >= 0.15) {
+          <div class="card"><app-pair-evidence [pair]="n" /></div>
+        }
+      }
+    </div>
+
+    <h2 style="margin-top: 24px">Wyodrębnione cechy</h2>
+    <div class="grid cols-2">
+      <section class="card">
+        <h3>Infrastruktura</h3>
+        <dl class="kv">
+          <dt>URL wejścia</dt><dd><code>{{ f.summary.landing_url }}</code></dd>
+          <dt>Domeny docelowe</dt><dd><code>{{ f.summary.landing_domains.join(', ') || '-' }}</code></dd>
+          <dt>Domeny pomocnicze</dt><dd><code>{{ f.summary.aux_domains.join(', ') || '-' }}</code></dd>
+          <dt>Serwery</dt><dd class="small">{{ f.infra.servers.join(' · ') || '-' }}</dd>
+          <dt>Adresy IP</dt>
+          <dd>
+            @for (ip of f.infra.ips; track ip.ip) {
+              @if (ip.landing) {
+                <div class="small"><code>{{ ip.ip }}</code> {{ ip.shared_network ? '(' + ip.shared_network + ')' : '' }} → {{ ip.hosts.join(', ') }}</div>
+              }
+            }
+          </dd>
+          @if (f.infra.redirects.length) {
+            <dt>Przekierowania</dt>
+            <dd>
+              @for (r of f.infra.redirects; track $index) { <div class="small"><code>{{ r[0] }}</code> → <code>{{ r[1] }}</code></div> }
+            </dd>
+          }
+          @for (d of f.infra.rdap | keyvalue; track d.key) {
+            <dt>RDAP {{ d.key }}</dt><dd class="small"><code>{{ d.value | json }}</code></dd>
+          }
+        </dl>
+      </section>
+
+      <section class="card">
+        <h3>Śledzenie i lejek reklamowy</h3>
+        @if (trackerTokens().length === 0) { <p class="muted">Brak identyfikatorów śledzących.</p> }
+        <dl class="kv">
+          @for (t of trackerTokens(); track t.key) {
+            <dt>{{ t.key }}</dt>
+            <dd class="tok">@for (val of t.values; track val) { <code class="chip">{{ val }}</code> }</dd>
+          }
+        </dl>
+        @if (f.meta.ad; as ad) {
+          <h3 style="margin-top: 12px">Biblioteka reklam</h3>
+          <dl class="kv">
+            <dt>Reklamodawca</dt><dd>{{ ad['advertiser'] }} <span class="muted">({{ ad['advertiser_id'] }})</span></dd>
+            <dt>Reklama</dt><dd><a [href]="ad['ad_library_url']" target="_blank" rel="noopener">{{ ad['ad_id'] }}</a></dd>
+          </dl>
+        }
+      </section>
+
+      <section class="card">
+        <h3>Treść i narracja</h3>
+        <dl class="kv">
+          <dt>Tematy</dt>
+          <dd class="tok">@for (t of entries(f.topics); track t[0]) { <span class="chip">{{ topicPl[t[0]] || t[0] }} {{ t[1] | number: '1.2-2' }}</span> }</dd>
+          <dt>Marki</dt>
+          <dd class="tok">@for (b of entries(f.brands); track b[0]) { <span class="chip">{{ b[0] }}</span> }</dd>
+          <dt>Słowa kluczowe</dt><dd class="small">{{ f.text.keywords.slice(0, 25).join(', ') }}</dd>
+          <dt>Manipulacja</dt>
+          <dd>
+            <strong>{{ f.manipulation.score | number: '1.2-2' }}</strong> <span class="muted small">({{ f.manipulation.method }})</span>
+            @for (c of f.manipulation.categories | keyvalue; track c.key) {
+              <div class="small"><span class="chip accent">{{ manipPl[c.key] || c.key }}</span> „{{ c.value.join('”, „') }}”</div>
+            }
+          </dd>
+          @if (f.narrative_llm; as n) {
+            <dt>LLM ({{ n.model }})</dt>
+            <dd class="small">{{ n.narracja }} <br /><span class="muted">techniki: {{ n.techniki?.join(', ') }}; CTA: {{ n.wezwanie_do_dzialania }}</span></dd>
+          }
+        </dl>
+        @if (f.text.headings.length) {
+          <h3 style="margin-top: 12px">Nagłówki</h3>
+          <ul class="small">@for (h of f.text.headings.slice(0, 8); track $index) { <li>{{ h }}</li> }</ul>
+        }
+        <details>
+          <summary class="small">Tekst strony ({{ f.summary.text_chars }} znaków)</summary>
+          <pre class="body">{{ f.text.body }}</pre>
+        </details>
+      </section>
+
+      <section class="card">
+        <h3>AI, osoby i twarze</h3>
+        <dl class="kv">
+          <dt>Deklaracje AI</dt>
+          <dd>
+            @if (!f.ai.declarations.length) { <span class="muted">brak</span> }
+            @for (d of f.ai.declarations; track $index) {
+              <div class="small"><span class="chip accent">{{ d.text }}</span> <span class="muted">{{ d.source }}</span></div>
+            }
+          </dd>
+          <dt>Osoby publiczne</dt>
+          <dd>
+            @for (p of f.persons | keyvalue; track p.key) {
+              <div class="small"><strong>{{ p.key }}</strong> <span class="muted">źródło: {{ p.value.join(', ') }}</span></div>
+            } @empty { <span class="muted">brak</span> }
+          </dd>
+          <dt>Twarze ({{ f.faces.length }})</dt>
+          <dd>
+            @for (face of f.faces.slice(0, 12); track $index) {
+              <div class="small">
+                @if (face.match) { <span class="chip accent">{{ face.match.slug }} {{ face.match.sim | number: '1.2-2' }}</span> }
+                @else { <span class="chip">nieznana</span> }
+                <span class="muted">{{ face.src }}</span>
+              </div>
+            }
+          </dd>
+          @if (f.video.length) {
+            <dt>Wideo</dt>
+            <dd>@for (vd of f.video; track $index) { <div class="small">{{ vd.src }}: {{ vd.duration_s }} s, {{ vd.width }}×{{ vd.height }}</div> }</dd>
+          }
+        </dl>
+        @if (f.text.ocr.length) {
+          <details>
+            <summary class="small">Tekst z obrazów (OCR, {{ f.text.ocr.length }})</summary>
+            @for (o of f.text.ocr; track $index) { <p class="small"><span class="muted">{{ o.src }}:</span> {{ o.text }}</p> }
+          </details>
+        }
+      </section>
+    </div>
+
+    <section class="card" style="margin-top: 16px">
+      <div class="spread">
+        <h3>Materiał wizualny</h3>
+        <span class="muted small">kompletność danych {{ f.completeness.score }} · {{ v.artifacts.length }} plików</span>
+      </div>
+      <div class="thumbs">
+        @for (a of images(); track a.index) {
+          <a [href]="artifactUrl(a.index)" target="_blank" rel="noopener" [title]="a.name"><img [src]="artifactUrl(a.index)" [alt]="a.name" loading="lazy" /></a>
+        }
+      </div>
+      @if (f.completeness.warnings.length) {
+        <div class="notice warn small" style="margin-top: 10px">
+          @for (w of f.completeness.warnings; track $index) { <div>{{ w }}</div> }
+        </div>
+      }
+    </section>
+  }
+} @else {
+  <p class="muted">Ładowanie…</p>
+}

@@ -1,0 +1,136 @@
+- slug: rafal-brzoska
+  name: Rafał Brzoska
+  role: przedsiębiorca (InPost)
+  pattern: '\bbrzos(k|c)\w*'
+- slug: monika-olejnik
+  name: Monika Olejnik
+  role: dziennikarka (TVN24)
+  pattern: '\bolejnik\w*'
+- slug: robert-lewandowski
+  name: Robert Lewandowski
+  role: piłkarz
+  pattern: '\brobert\w*\s+lewandowsk\w*'
+- slug: anna-lewandowska
+  name: Anna Lewandowska
+  role: trenerka, przedsiębiorczyni
+  pattern: '\bann\w*\s+lewandowsk\w*'
+- slug: andrzej-duda
+  name: Andrzej Duda
+  role: polityk, były prezydent RP
+  pattern: '\bandrzej\w*\s+dud\w*|\bprezydent\w*\s+dud\w*'
+- slug: karol-nawrocki
+  name: Karol Nawrocki
+  role: prezydent RP
+  pattern: '\bnawrock\w*'
+- slug: donald-tusk
+  name: Donald Tusk
+  role: premier
+  pattern: '\btusk\w*'
+- slug: mateusz-morawiecki
+  name: Mateusz Morawiecki
+  role: polityk
+  pattern: '\bmorawieck\w*'
+- slug: rafal-trzaskowski
+  name: Rafał Trzaskowski
+  role: polityk
+  pattern: '\btrzaskowsk\w*'
+- slug: szymon-holownia
+  name: Szymon Hołownia
+  role: polityk
+  pattern: '\bholowni\w*'
+- slug: slawomir-mentzen
+  name: Sławomir Mentzen
+  role: polityk
+  pattern: '\bmentzen\w*'
+- slug: jaroslaw-kaczynski
+  name: Jarosław Kaczyński
+  role: polityk
+  pattern: '\bjaroslaw\w*\s+kaczynsk\w*|\bprezes\w*\s+kaczynsk\w*'
+- slug: kuba-wojewodzki
+  name: Kuba Wojewódzki
+  role: dziennikarz, showman
+  pattern: '\bwojewodzk\w*'
+- slug: marcin-prokop
+  name: Marcin Prokop
+  role: dziennikarz TVN
+  pattern: '\bprokop\w*'
+- slug: dorota-wellman
+  name: Dorota Wellman
+  role: dziennikarka TVN
+  pattern: '\bwellman\w*'
+- slug: magda-gessler
+  name: Magda Gessler
+  role: restauratorka
+  pattern: '\bgessler\w*'
+- slug: krzysztof-stanowski
+  name: Krzysztof Stanowski
+  role: dziennikarz
+  pattern: '\bstanowsk\w*'
+- slug: jerzy-owsiak
+  name: Jerzy Owsiak
+  role: WOŚP
+  pattern: '\bowsiak\w*'
+- slug: adam-glapinski
+  name: Adam Glapiński
+  role: prezes NBP
+  pattern: '\bglapinsk\w*'
+- slug: michal-solowow
+  name: Michał Sołowow
+  role: przedsiębiorca
+  pattern: '\bsolowow\w*'
+- slug: dominika-kulczyk
+  name: Dominika Kulczyk
+  role: przedsiębiorczyni
+  pattern: '\bkulczyk\w*'
+- slug: zygmunt-solorz
+  name: Zygmunt Solorz
+  role: przedsiębiorca (Polsat)
+  pattern: '\bsolorz\w*'
+- slug: elon-musk
+  name: Elon Musk
+  role: przedsiębiorca
+  pattern: '\belon\w*\s+musk\w*|\bmusk(a|owi|iem)?\b'
+- slug: krzysztof-ibisz
+  name: Krzysztof Ibisz
+  role: prezenter
+  pattern: '\bibisz\w*'
+- slug: tomasz-lis
+  name: Tomasz Lis
+  role: dziennikarz
+  pattern: '\btomasz\w*\s+lis(a|em|owi)?\b'
+- slug: piotr-krasko
+  name: Piotr Kraśko
+  role: dziennikarz
+  pattern: '\bkrask\w*'
+- slug: martyna-wojciechowska
+  name: Martyna Wojciechowska
+  role: dziennikarka, podróżniczka
+  pattern: '\bmartyn\w*\s+wojciechowsk\w*'
+- slug: ewa-chodakowska
+  name: Ewa Chodakowska
+  role: trenerka
+  pattern: '\bchodakowsk\w*'
+- slug: katarzyna-bosacka
+  name: Katarzyna Bosacka
+  role: dziennikarka
+  pattern: '\bbosack\w*'
+- slug: iga-swiatek
+  name: Iga Świątek
+  role: tenisistka
+  pattern: '\biga\w*\s+swiat\w*|\bswiatk(a|iem|owi|u)\b'
+- slug: adam-malysz
+  name: Adam Małysz
+  role: sportowiec
+  pattern: '\bmalysz\w*'
+- slug: tomasz-kammel
+  name: Tomasz Kammel
+  role: prezenter
+  pattern: '\bkammel\w*'
+- slug: bogdan-rymanowski
+  name: Bogdan Rymanowski
+  role: dziennikarz
+  pattern: '\brymanowsk\w*'
+- slug: justyna-kowalczyk
+  name: Justyna Kowalczyk
+  role: sportsmenka
+  pattern: '\bjustyn\w*\s+kowalczyk\w*'

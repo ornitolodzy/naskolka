@@ -1,0 +1,38 @@
+services:
+  backend:
+    build: ./backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      FK_DATA_DIR: /data
+      FK_OLLAMA_URL: ${FK_OLLAMA_URL:-}
+    volumes:
+      - ./data:/data
+      - ./backend/reference:/app/reference:ro
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+
+  proxy:
+    image: nginx:1.29-alpine
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${FK_PORT:-4300}:80"
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["llm"]
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  ollama:
