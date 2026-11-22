@@ -5,6 +5,13 @@ export const NAV_ORDER = ['', 'graf', 'materialy', 'analiza'];
 /** Zakładka otwierana jak arkusz od dołu, a nie w karuzeli. */
 const SHEET = NAV_ORDER.indexOf('analiza');
 
+let current: Promise<void> | null = null;
+
+/** Promise kończący się po zakończeniu bieżącej animacji przejścia (albo od razu, gdy jej nie ma). */
+export function transitionDone(): Promise<void> {
+  return current ?? Promise.resolve();
+}
+
 function navIndex(route: ActivatedRouteSnapshot): number {
   let r = route;
   while (r.firstChild) r = r.firstChild;
@@ -34,7 +41,11 @@ export function onNavTransition({ transition, from, to }: ViewTransitionInfo): v
   else dir = b !== a ? (b > a ? 'next' : 'prev') : depth(to) >= depth(from) ? 'next' : 'prev';
   const root = document.documentElement;
   root.dataset['navDir'] = dir;
-  transition.finished.finally(() => {
-    if (root.dataset['navDir'] === dir) delete root.dataset['navDir'];
-  });
+  const done = transition.finished
+    .catch(() => undefined)
+    .finally(() => {
+      if (root.dataset['navDir'] === dir) delete root.dataset['navDir'];
+      if (current === done) current = null;
+    });
+  current = done;
 }

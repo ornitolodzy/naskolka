@@ -157,7 +157,6 @@ button, input, select, textarea { font: inherit; }
   color: var(--naskolka-text-secondary);
   background: rgb(244 235 225 / 0.88);
   backdrop-filter: blur(6px);
-  border-top: 1px solid var(--naskolka-border-subtle);
   view-transition-name: footer;
 }
 

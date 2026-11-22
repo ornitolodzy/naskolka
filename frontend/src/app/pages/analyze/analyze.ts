@@ -56,8 +56,8 @@ import { Api } from '../../core/api.service';
         <input type="text" [(ngModel)]="label" placeholder="np. reklama z Instagrama 22.11" />
       </label>
       @if (error()) { <div class="notice bad">{{ error() }}</div> }
-      <div class="row">
-        <button class="btn" (click)="submit()" [disabled]="busy() || (!url && files().length === 0)">
+      <div class="row actions">
+        <button class="btn submit" (click)="submit()" [disabled]="busy() || (!url && files().length === 0)">
           {{ busy() ? 'Wysyłam…' : 'Analizuj i porównaj' }}
         </button>
         @if (files().length) { <button class="btn ghost" (click)="files.set([])">Wyczyść pliki</button> }
@@ -69,6 +69,10 @@ import { Api } from '../../core/api.service';
     .field span { font-size: 13px; color: var(--naskolka-text-secondary); }
     .field input { padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--naskolka-border-subtle); background: var(--naskolka-bg-canvas); }
     .field input:focus { border-color: var(--naskolka-accent-primary); outline: none; }
+    @media (max-width: 760px) {
+      .actions { flex-direction: column; align-items: stretch; }
+      .actions .btn { justify-content: center; width: 100%; padding: 14px 18px; font-size: 15px; }
+    }
     .drop {
       position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;
       padding: 28px 18px; text-align: center; cursor: pointer;

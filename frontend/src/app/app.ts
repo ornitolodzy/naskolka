@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
 
-import { NAV_ORDER } from './core/nav-transition';
+import { NAV_ORDER, transitionDone } from './core/nav-transition';
 
 /** Zakładki, między którymi przełącza swipe na telefonie (bez „Nowej analizy”). */
 const SWIPE_TABS = NAV_ORDER.filter((p) => p !== 'analiza');
@@ -69,7 +69,8 @@ export class App {
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
       map((e) => {
-        this.menuOpen.set(false);
+        // Najpierw zmienia się strona i aktywna zakładka, dopiero potem menu się zwija.
+        if (this.menuOpen()) transitionDone().then(() => setTimeout(() => this.menuOpen.set(false), 120));
         return e.urlAfterRedirects;
       }),
     ),
