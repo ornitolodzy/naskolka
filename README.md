@@ -14,7 +14,8 @@ Wyzwanie NASK „Kolekcjoner fejków”, HackNation 2026. Szczegóły metody: [d
 - **Analiza nowego materiału**: URL, pliki albo archiwum. Wynik to przypisanie do znanej kampanii, oznaczenie jako
   pokrewny wariant albo nowy wzorzec, razem z uzasadnieniem.
 - **Ekstrakcja cech** w ośmiu kanałach: infrastruktura, śledzenie i lejek reklamowy, kod strony, treść, obrazy,
-  twarze, osoby i marki, narracja. Teksty z grafik i klatek wideo czyta OCR.
+  twarze, osoby i marki, narracja. Teksty z grafik i klatek wideo czyta OCR, a mowę z wideo transkrybuje lokalnie
+  faster-whisper (Whisper „small”, CPU int8, automatycznie CUDA, jeśli jest karta NVIDIA).
 - **Kampanie i rodziny kampanii**: sygnatura każdej kampanii, interaktywny graf powiązań, porównanie dowolnej pary
   materiałów z rozbiciem na kanały.
 - **Lampki ryzyka**:
@@ -27,8 +28,11 @@ Wyzwanie NASK „Kolekcjoner fejków”, HackNation 2026. Szczegóły metody: [d
   | fioletowa | AI + wizerunek osoby publicznej |
   | czarna | AI + osoba publiczna + manipulacyjny przekaz |
 
-- **Samouczący się detektor AI**: uczy się na materiałach, które same deklarują AI (podpis, etykieta platformy,
-  metadane C2PA, IPTC lub SynthID), oraz na ocenach analityka.
+- **Samouczący się detektor AI**: cechy CLIP ViT-L/14 i widmowe, uczony na korpusie startowym OpenFake (obrazy
+  z ponad 50 generatorów i zdjęcia prawdziwe), materiałach, które same deklarują AI (podpis, etykieta platformy,
+  metadane C2PA, IPTC lub SynthID), oraz ocenach analityka. Lampki zapala dopiero wtedy, gdy przejdzie bramkę
+  jakości: co najmniej 20 przykładów AI z 3 źródeł, AUC ≥ 0,80 na niewidzianych generatorach i najwyżej 35%
+  oflagowanych materiałów zbioru (ochrona przed przesunięciem domeny).
 - **Eksport** wzbogaconego zbioru (cechy, kampanie, powiązania, lampki) do JSON.
 
 ## Uruchomienie (Docker)
@@ -62,8 +66,11 @@ Wzbogacanie online (RDAP i DNS) jest domyślnie wyłączone (`FK_ENABLE_ONLINE=1
 # backend (Python 3.12+)
 cd backend
 python -m venv .venv; .\.venv\Scripts\pip install -r requirements-dev.txt
-.\.venv\Scripts\python -m app.cli models       # pobiera modele twarzy do data/models
+.\.venv\Scripts\python -m app.cli models       # pobiera modele twarzy, CLIP i Whisper do data/models
 .\.venv\Scripts\python -m app.cli import       # import data/raw + raport kampanii w konsoli
+.\.venv\Scripts\python -m app.cli seed --shards 10   # korpus startowy OpenFake do data/ai_seed
+.\.venv\Scripts\python -m app.cli train        # trening detektora AI + metryki bramki
+.\.venv\Scripts\python -m app.cli reprocess    # ponowna ekstrakcja cech wszystkich materiałów
 .\.venv\Scripts\python -m uvicorn app.main:app --port 8010 --reload
 .\.venv\Scripts\python -m pytest
 
@@ -97,6 +104,10 @@ Wiedzę referencyjną można edytować bez zmian w kodzie:
 Materiały konkursowe **nie mogą być publicznie rozpowszechniane**, dlatego `data/` jest w `.gitignore`.
 Repozytorium zawiera wyłącznie kod i wiedzę referencyjną.
 
+Korpus startowy detektora pobierany jest na żądanie (`app.cli seed` albo przycisk na stronie **System**) z
+[OpenFake](https://huggingface.co/datasets/ComplexDataLab/OpenFake) (ComplexDataLab, CC-BY-NC-4.0, użycie
+niekomercyjne) do `data/ai_seed/` i także nie jest częścią repozytorium.
+
 ## Biblioteki, modele i licencje
 
 | Komponent | Zastosowanie | Licencja |
@@ -113,6 +124,11 @@ Repozytorium zawiera wyłącznie kod i wiedzę referencyjną.
 | YuNet (OpenCV Zoo) | model detekcji twarzy | MIT |
 | SFace (OpenCV Zoo) | model embeddingów twarzy | Apache-2.0 |
 | RapidOCR + ONNX Runtime (modele PP-OCR) | OCR tekstu z grafik i klatek | Apache-2.0 / MIT |
+| faster-whisper, CTranslate2, Whisper small | transkrypcja mowy z wideo | MIT / MIT / MIT |
+| PyAV | dekodowanie audio | BSD-3 |
+| CLIP ViT-L/14 (OpenAI, eksport ONNX Xenova) | cechy obrazu dla detektora AI | MIT |
+| huggingface_hub, pyarrow | pobieranie modeli i korpusu startowego | Apache-2.0 |
+| OpenFake (korpus startowy) | przykłady obrazów AI i prawdziwych | CC-BY-NC-4.0 |
 | Angular, RxJS | interfejs | MIT / Apache-2.0 |
 | Cytoscape.js | graf powiązań | MIT |
 | nginx | serwowanie i proxy | BSD-2 |

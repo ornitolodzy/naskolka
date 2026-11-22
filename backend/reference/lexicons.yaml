@@ -101,6 +101,10 @@ manipulation:
     - '\bpromocj\w*\s+(konczy|trwa\s+do)\w*'
     - '\bnie\s+czekaj\b'
     - '\b\d+\s+minut\w*\s+po\b'
+    - '\bdopoki\s+(trwa|jest|sa)\b'
+    - '\b(przestan\w*|nie)\s+odklad\w*'
+    - '\bjest\s+juz\s+za\s+pozno\b'
+    - '\bkliknij\w*\s+(w\s+)?(ponizszy|link|przycisk|dowiedz)\w*'
   secrecy_conspiracy:
     - '\bnie\s+chc\w*,?\s+(zeby|abys)\b'
     - '\bukrywa\w*'
@@ -121,6 +125,7 @@ manipulation:
     - '\bpodwoi\w*|\bpomnoz\w*'
     - '\bzarob\w*\s+\d'
     - '\bwolnosc\w*\s+finansow\w*'
+    - '\b[5-9]\d\s*%\s+(znizk|rabat)\w*'
   miracle_health:
     - '\bcudown\w*'
     - '\bw\s+\d+\s+dni\b'
@@ -130,6 +135,11 @@ manipulation:
     - '\bprzelom\w*'
     - '\bnaturaln\w*\s+sposob\w*'
     - '\bfarmaceut\w*\s+(nie|ukryw)\w*'
+    - '\bbez\s+(zastrzyk|lekow|operacj|leki)\w*'
+    - '\bnajskuteczniejsz\w*'
+    - '\beliminuje\s+przyczyn\w*'
+    - '\bwyleczyl\w*\s+(swoj|sie)\w*'
+    - '\b(bezuzyteczn|niepotrzebn)\w*\s+(masaz|zabieg|lek|leczeni)\w*'
   fear_shock:
     - '\btragedi\w*'
     - '\bdramat\w*'
@@ -142,6 +152,9 @@ manipulation:
     - '\bkajdank\w*'
     - '\bzniszczy\w*'
     - '\bsmierc\w*|\bzgin\w*'
+    - '\bna\s+wozku\s+inwalidzk\w*'
+    - '\bparaliz\w*'
+    - '\bzabija\w*'
   authority_social_proof:
     - '\bekspert\w*\s+potwierdz\w*'
     - '\btysiac\w*\s+polak\w*'
@@ -151,6 +164,13 @@ manipulation:
     - '\bnaukowc\w*'
     - '\bopini\w*\s+(klient|uzytkownik)\w*'
     - '\bpolecam\w*'
+  official_benefit_bait:
+    - '\bprogram\w*\s+(panstwow|rzadow)\w*'
+    - '\b\d+\s*%\s+(kosztow|refundac)\w*'
+    - '\bpokrywa\s+\d+\s*%'
+    - '\bdla\s+wszystkich\s+(emeryt|rencist|senior|polak)\w*'
+    - '\bwystarczy\s+byc\s+obywatel\w*'
+    - '\brefundac\w*'
 
 ai_declarations:
   - '\bwygenerowan\w*\s+(przy\s+uzyciu|przez|z\s+uzyciem|za\s+pomoca)\s+(ai|si|sztucznej\s+inteligencji)\b'

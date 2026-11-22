@@ -31,6 +31,11 @@ class Settings:
     enable_ocr: bool = field(default_factory=lambda: _bool("FK_ENABLE_OCR", True))
     enable_faces: bool = field(default_factory=lambda: _bool("FK_ENABLE_FACES", True))
     enable_online: bool = field(default_factory=lambda: _bool("FK_ENABLE_ONLINE", False))
+    enable_asr: bool = field(default_factory=lambda: _bool("FK_ENABLE_ASR", True))
+    asr_model: str = field(default_factory=lambda: os.getenv("FK_ASR_MODEL", "small"))
+    asr_device: str = field(default_factory=lambda: os.getenv("FK_ASR_DEVICE", "auto"))
+    enable_clip: bool = field(default_factory=lambda: _bool("FK_ENABLE_CLIP", True))
+    clip_model: str = field(default_factory=lambda: os.getenv("FK_CLIP_MODEL", "l14"))
     video_frames: int = field(default_factory=lambda: int(os.getenv("FK_VIDEO_FRAMES", "12")))
     max_upload_mb: int = field(default_factory=lambda: int(os.getenv("FK_MAX_UPLOAD_MB", "600")))
 
@@ -59,6 +64,14 @@ class Settings:
     @property
     def cache_dir(self) -> Path:
         return self.data_dir / "cache"
+
+    @property
+    def models_dir(self) -> Path:
+        return self.data_dir / "models"
+
+    @property
+    def seed_dir(self) -> Path:
+        return self.data_dir / "ai_seed"
 
     @property
     def db_path(self) -> Path:

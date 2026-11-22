@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import logging
+import mimetypes
 import os
 import re
 import shutil
@@ -19,12 +20,12 @@ from urllib.parse import urlparse
 import httpx
 import numpy as np
 
-from . import correlate, llm, risk
+from . import correlate, llm, risk, seed
 from .config import settings
-from .features import faces, ocr
+from .features import asr, clip, faces, ocr
 from .features.ai_detector import detector
 from .features.text import fold, persons
-from .ingest.collect import collect_artifacts, long_path
+from .ingest.collect import IMAGE_EXT, VIDEO_EXT, collect_artifacts, long_path
 from .models import Material
 from .pipeline import extract
 from .store import Store
@@ -47,6 +48,7 @@ class Service:
         self._gallery: faces.Gallery | None = None
         self._gallery_lock = threading.Lock()
         self.import_state: dict = {"running": False}
+        self.seed_state: dict = {"running": False}
         for row in self.store.all(with_features=False):
             if row["status"] in {"pending", "processing"}:
                 self.submit(row["id"])
@@ -60,7 +62,10 @@ class Service:
                 "faces_gallery": self.gallery().summary() if faces.available() else {},
                 "llm": {"configured": llm.available(), "reachable": llm.ping(), "model": settings.ollama_model},
                 "online_enrichment": settings.enable_online,
+                "asr": asr.info(),
+                "clip": clip.info(),
                 "ai_detector": detector.info(),
+                "ai_seed": seed.summary() | {"job": self.seed_state},
             },
             "thresholds": {
                 "campaign": correlate.CAMPAIGN_THRESHOLD,
@@ -219,6 +224,18 @@ class Service:
             if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
                 raise ValueError(f"adres {host} wskazuje na sieć prywatną")
 
+    @staticmethod
+    def _save_media(url: str, r: httpx.Response, root: Path) -> None:
+        mime = r.headers.get("content-type", "").split(";")[0].strip().lower()
+        kind = mime.split("/")[0]
+        if kind not in {"image", "video"} or len(r.content) > settings.max_upload_mb * 1024 * 1024:
+            return
+        name = Path(urlparse(url).path).name
+        name = re.sub(r"[^\w.\-]", "_", name)[:120] or "media"
+        if Path(name).suffix.lower() not in IMAGE_EXT | VIDEO_EXT:
+            name += mimetypes.guess_extension(mime) or (".jpg" if kind == "image" else ".mp4")
+        (root / name).write_bytes(r.content)
+
     def _fetch_url(self, url: str, root: Path) -> None:
         u = urlparse(url)
         if u.scheme not in {"http", "https"} or not u.hostname:
@@ -249,6 +266,8 @@ class Service:
                     continue
                 if body:
                     (root / "page.html").write_text(f"<!-- saved from url=(0000){current} -->\n{body}", "utf-8")
+                elif r.status_code == 200:
+                    self._save_media(current, r, root)
                 break
         (root / "fetched.har").write_text(json.dumps({"log": {"entries": entries}}), "utf-8")
 
@@ -296,7 +315,7 @@ class Service:
         else:
             prop = self.propagated(row, declared if declared is not None else self._declared_images())
         score = detector.score_vectors((f.get("ai") or {}).get("vectors") or [])
-        return risk.assess(f, score, labels.get(row["id"]), detector.reliable, prop)
+        return risk.assess(f, score, labels.get(row["id"]), detector.reliable, prop, detector.trained)
 
     def material_list(self) -> list[dict]:
         model = self.model()
@@ -339,7 +358,11 @@ class Service:
         f = row.get("features") or {}
         if f:
             f = dict(f)
+            vectors = (f.get("ai") or {}).get("vectors") or []
             f["ai"] = {k: v for k, v in (f.get("ai") or {}).items() if k != "vectors"}
+            f["ai"]["image_scores"] = [
+                {"src": s, "p": p} for s, p in sorted(detector.score_images(vectors), key=lambda x: -x[1])[:5]
+            ]
             f["faces"] = [{k: v for k, v in face.items() if k != "emb"} for face in f.get("faces", [])]
             f["text"] = dict(f.get("text") or {})
             f["text"]["body"] = (f["text"].get("body") or "")[:6000]
@@ -413,9 +436,25 @@ class Service:
         p = self.model().pair(a, b)
         return p.to_dict(top=60) if p else None
 
+    def fetch_seed(self, shards: int) -> dict:
+        if self.seed_state.get("running"):
+            return self.seed_state
+
+        def job():
+            try:
+                result = seed.fetch_openfake(shards=shards)
+                self.seed_state.update(running=False, result=result, error=None, finished_at=time.time())
+            except Exception as exc:
+                log.exception("seed fetch failed")
+                self.seed_state.update(running=False, error=f"{type(exc).__name__}: {exc}", finished_at=time.time())
+
+        self.seed_state = {"running": True, "shards": shards, "started_at": time.time()}
+        self.pool.submit(job)
+        return self.seed_state
+
     def train_ai(self) -> dict:
         labels = self.store.labels()
-        samples: list[tuple[list[float], str]] = []
+        samples: list[tuple[dict, str, str]] = list(seed.load_samples())
         for row in self.store.all():
             f = row.get("features") or {}
             ai = f.get("ai") or {}
@@ -430,11 +469,11 @@ class Service:
                     whole = True
             for vec in ai.get("vectors") or []:
                 if whole or vec["src"] in declared_srcs:
-                    samples.append((vec["v"], "pos", row["id"]))
+                    samples.append((vec, "pos", row["id"]))
                 elif lab == "false":
-                    samples.append((vec["v"], "neg", row["id"]))
+                    samples.append((vec, "neg", row["id"]))
                 else:
-                    samples.append((vec["v"], "unl", row["id"]))
+                    samples.append((vec, "unl", row["id"]))
         result = detector.train(samples)
         self.store.touch()
         return result

@@ -41,6 +41,55 @@ def test_text_lexicons():
     assert {"urgency", "unrealistic_gain"} <= set(m["categories"])
     assert find_ai_declarations("Ten obraz został wygenerowany przy użyciu AI")
     assert not find_ai_declarations("Zwykły artykuł o gospodarce")
+    assert not find_ai_declarations("Platforma oparta na sztucznej inteligencji zarabia za ciebie")
+
+
+def test_transcript_style_manipulation():
+    m = manipulation_analysis(
+        "Program państwowy pokrywa 50% kosztów dla wszystkich emerytów. Leczenie bez zastrzyków. "
+        "Przestańcie odkładać leczenie, w przeciwnym razie wylądujesz na wózku inwalidzkim. "
+        "Kliknij w poniższy link, dopóki trwa program."
+    )
+    assert {"official_benefit_bait", "urgency", "miracle_health", "fear_shock"} <= set(m["categories"])
+    assert m["score"] >= 0.5
+    assert "fear_shock" not in manipulation_analysis("Producent wózków inwalidzkich otworzył fabrykę")["categories"]
+
+
+def _fake_samples(rng, n, label, source, shift):
+    import numpy as np
+
+    out = []
+    for _ in range(n):
+        v = rng.normal(0, 1, 23) + shift
+        c = rng.normal(0, 1, 16) + shift
+        c = c / np.linalg.norm(c)
+        out.append(({"src": "x", "v": v.tolist(), "c": c.tolist(), "cm": "test"}, label, source))
+    return out
+
+
+def test_ai_detector_gate_requires_generalization_and_no_domain_shift(tmp_path, monkeypatch):
+    import numpy as np
+
+    from app.features import ai_detector
+
+    monkeypatch.setattr(ai_detector, "_model_path", lambda: tmp_path / "head.json")
+    rng = np.random.default_rng(0)
+    pos = [s for g in range(6) for s in _fake_samples(rng, 10, "pos", f"seed:ai/gen{g}", 1.5)]
+    neg = _fake_samples(rng, 60, "neg", "seed:real/photos", 0.0)
+
+    det = ai_detector.AIDetector()
+    det.train(pos + neg + _fake_samples(rng, 40, "unl", "ds-1", 0.0))
+    assert det.model["mode"] == "supervised"
+    assert det.model["heldout_auc"] >= 0.8
+    assert det.reliable
+
+    det.train(pos + neg + _fake_samples(rng, 40, "unl", "ds-1", 3.0))
+    assert det.model["unlabeled_flag_rate"] > ai_detector.MAX_UNLABELED_FLAG_RATE
+    assert not det.reliable
+
+    det.train(pos[:7] + _fake_samples(rng, 40, "unl", "ds-1", 0.0))
+    assert det.model["mode"] == "pu"
+    assert not det.reliable
 
 
 def test_rarity_damps_common_values():

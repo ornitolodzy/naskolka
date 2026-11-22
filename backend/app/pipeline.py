@@ -11,7 +11,7 @@ import imagehash
 import numpy as np
 
 from .config import settings
-from .features import ai_detector, faces, ocr
+from .features import ai_detector, asr, clip, faces, ocr
 from .features.infra import (
     RdapClient,
     find_trackers,
@@ -65,6 +65,7 @@ class Acc:
         self.ai_decl: list[dict] = []
         self.meta_hints: list[dict] = []
         self.video: list[dict] = []
+        self.transcripts: list[dict] = []
         self.meta: dict = {}
         self.warnings: list[str] = []
         self.kinds: Counter = Counter()
@@ -145,10 +146,19 @@ def _process_image(acc: Acc, path: str, src: str, kind: str, do_ocr: bool, galle
                     mask.append(l["box"])
 
     if img.width >= 128 and img.height >= 128:
-        acc.ai_vectors.append({"src": src, "v": ai_detector.image_vector(ai_detector.mask_boxes(img, mask))})
+        _add_ai_vector(acc, img, mask, src, kind)
     if faces.available() and len(acc.faces) < MAX_FACES:
         bgr = np.asarray(img)[:, :, ::-1].copy()
         _add_faces(acc, bgr, src, gallery)
+
+
+def _add_ai_vector(acc: Acc, img, mask: list[list[int]], src: str, kind: str) -> None:
+    masked = ai_detector.webify(ai_detector.mask_boxes(img, mask))
+    entry = {"src": src, "kind": kind, "v": ai_detector.image_vector(masked)}
+    if emb := clip.embed(masked):
+        entry["c"] = emb
+        entry["cm"] = clip.model_key()
+    acc.ai_vectors.append(entry)
 
 
 def _add_faces(acc: Acc, bgr: np.ndarray, src: str, gallery) -> None:
@@ -169,6 +179,23 @@ def _process_video(acc: Acc, path: str, src: str, gallery) -> None:
     frames, meta = video_frames(path, settings.video_frames)
     meta["src"] = src
     acc.video.append(meta)
+    if asr.available():
+        try:
+            tr = asr.transcribe(path)
+        except Exception as exc:
+            log.exception("asr failed for %s", src)
+            acc.warnings.append(f"wideo {src}: transkrypcja nieudana ({type(exc).__name__})")
+            tr = None
+        if tr and tr.get("text"):
+            acc.transcripts.append({"src": src, "language": tr.get("language"), "duration": tr.get("duration"),
+                                    "text": tr["text"][:20_000], "segments": tr.get("segments", [])[:400]})
+            acc.texts.append((f"asr:{src}", tr["text"]))
+            for decl in find_ai_declarations(tr["text"]):
+                acc.ai_decl.append({"source": f"asr:{src}", "text": decl})
+        elif tr and tr.get("no_audio"):
+            meta["audio"] = False
+    elif settings.enable_asr:
+        acc.warnings.append(f"wideo {src}: brak transkrypcji mowy (moduł ASR niedostępny)")
     if not frames:
         acc.warnings.append(f"wideo {src}: {meta.get('error', 'brak klatek')}")
         return
@@ -191,7 +218,7 @@ def _process_video(acc: Acc, path: str, src: str, gallery) -> None:
                     if decl := find_ai_declarations(l["text"]):
                         acc.ai_decl.append({"source": f"ocr:{src}@{ts}s", "text": decl[0], "box": l["box"]})
                         mask.append(l["box"])
-        acc.ai_vectors.append({"src": f"{src}@{ts}s", "v": ai_detector.image_vector(ai_detector.mask_boxes(img, mask))})
+        _add_ai_vector(acc, img, mask, f"{src}@{ts}s", "video_frame")
         if faces.available() and len(acc.faces) < MAX_FACES:
             _add_faces(acc, frame, f"{src}@{ts}s", gallery)
 
@@ -388,6 +415,7 @@ def _finalize(material: Material, acc: Acc, elapsed: float) -> dict:
         "has_page": acc.kinds["html"] + acc.kinds["mhtml"] > 0 or bool(acc.texts),
         "has_visual": acc.kinds["screenshot"] + acc.kinds["page_image"] + acc.kinds["video"] > 0,
         "has_video": acc.kinds["video"] > 0,
+        "has_transcript": bool(acc.transcripts),
         "has_ad_metadata": "ad" in acc.meta,
         "warnings": acc.warnings,
     }
@@ -412,6 +440,7 @@ def _finalize(material: Material, acc: Acc, elapsed: float) -> dict:
             "headings": list(dict.fromkeys(acc.headings))[:30],
             "body": body[:40_000],
             "ocr": acc.ocr[:30],
+            "transcripts": acc.transcripts,
             "keywords": keywords,
         },
         "persons": {k: sorted(v) for k, v in person_sources.items()},

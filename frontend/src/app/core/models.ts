@@ -66,6 +66,14 @@ export interface PersonInfo {
   materials?: number;
 }
 
+export interface Transcript {
+  src: string;
+  language: string | null;
+  duration: number | null;
+  text: string;
+  segments: { start: number; end: number; text: string }[];
+}
+
 export interface Features {
   summary: {
     title: string;
@@ -78,13 +86,20 @@ export interface Features {
     elapsed_s: number;
   };
   tokens: Record<string, Record<string, number>>;
-  text: { titles: string[]; headings: string[]; body: string; ocr: { src: string; text: string }[]; keywords: string[] };
+  text: {
+    titles: string[];
+    headings: string[];
+    body: string;
+    ocr: { src: string; text: string }[];
+    transcripts?: Transcript[];
+    keywords: string[];
+  };
   persons: Record<string, string[]>;
   brands: Record<string, number>;
   topics: Record<string, number>;
   manipulation: { score: number; categories: Record<string, string[]>; exclamations: number; caps_ratio: number; method: string };
   narrative_llm?: { narracja?: string; manipulacja?: number; techniki?: string[]; wezwanie_do_dzialania?: string; model?: string };
-  ai: { declared: boolean; declarations: { source: string; text: string }[] };
+  ai: { declared: boolean; declarations: { source: string; text: string }[]; image_scores?: { src: string; p: number }[] };
   faces: { src: string; bbox: number[]; score: number; match: { slug: string; sim: number } | null }[];
   images: { src: string; kind: string; w: number; h: number; sha1: string; phash: string }[];
   video: { src: string; duration_s?: number; width?: number; height?: number; error?: string }[];
@@ -160,6 +175,22 @@ export interface GraphData {
   thresholds: { campaign: number; family: number };
 }
 
+export interface AiDetectorInfo {
+  trained: boolean;
+  reliable: boolean;
+  model: string;
+  mode?: 'supervised' | 'pu';
+  features?: string;
+  positives?: number;
+  positive_sources?: number;
+  negatives?: number;
+  unlabeled?: number;
+  heldout_auc?: number | null;
+  unlabeled_flag_rate?: number | null;
+  reason?: string;
+  reliable_requires: { positives: number; positive_sources: number; heldout_auc: number; max_unlabeled_flag_rate: number };
+}
+
 export interface SystemStatus {
   materials: number;
   modules: {
@@ -168,7 +199,16 @@ export interface SystemStatus {
     faces_gallery: Record<string, number>;
     llm: { configured: boolean; reachable: boolean; model: string };
     online_enrichment: boolean;
-    ai_detector: Record<string, unknown> & { trained: boolean; reliable: boolean };
+    asr: { enabled: boolean; installed: boolean; model: string; device: string; loaded: boolean; error: string | null };
+    clip: { enabled: boolean; model: string; key: string; present: boolean; error: string | null };
+    ai_detector: AiDetectorInfo;
+    ai_seed: {
+      ai: number;
+      real: number;
+      ai_sources: number;
+      real_sources: number;
+      job: { running: boolean; error?: string | null; result?: Record<string, unknown> };
+    };
   };
   thresholds: Record<string, number>;
   import: { running: boolean; total?: number; started_at?: number; finished_at?: number };
@@ -197,4 +237,5 @@ export const MANIPULATION_PL: Record<string, string> = {
   miracle_health: 'cudowne leczenie',
   fear_shock: 'strach / szok',
   authority_social_proof: 'autorytet / dowód społeczny',
+  official_benefit_bait: 'fałszywy program rządowy / dopłata',
 };

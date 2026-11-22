@@ -16,7 +16,7 @@ Z każdego incydentu (HAR, HTML, MHTML, zrzuty, wideo, metadane) budujemy profil
 | infrastruktura | domena docelowa, domeny pomocnicze, IP poza wspólnymi CDN, podsieć /24, nagłówek serwera, TLD, łańcuch przekierowań, opcjonalnie RDAP (rejestrar, NS) |
 | śledzenie | Facebook Pixel, GTM, Google Ads, GA4, TikTok Pixel; **szablon linku** (klucze parametrów + kształt wartości, np. `utm_id=Mx20&utm_visit=UUID`); prefiks konta reklamowego, identyfikator landingu, klucz LP; telefon, e-mail; reklamodawca z biblioteki reklam |
 | kod strony | SHA1 plików JS, CSS i obrazów (bez publicznych CDN), nazwy skryptów, klasy i identyfikatory szablonu, meta generator i site_name |
-| treść | tytuł, nagłówki, tekst strony i tekst z OCR (TF-IDF) |
+| treść | tytuł, nagłówki, tekst strony, tekst z OCR i transkrypt mowy z wideo (TF-IDF) |
 | wizualne | SHA1 i hash percepcyjny (pHash) grafik i klatek wideo |
 | twarze | embeddingi SFace twarzy wykrytych przez YuNet, dopasowanie do galerii osób publicznych |
 | osoby i marki | osoby publiczne (słownik + twarze), marki i podmioty, pod które ktoś się podszywa |
@@ -25,6 +25,10 @@ Z każdego incydentu (HAR, HTML, MHTML, zrzuty, wideo, metadane) budujemy profil
 Szablon linku jest szczególnie cenny, bo przetrwa rotację domen: kolejna domena tej samej kampanii zwykle używa
 identycznego zestawu parametrów trackera. Identyfikatorów kliknięć nie porównujemy dosłownie (są unikalne), tylko
 ich format, który zdradza typ trackera.
+
+**Mowa z wideo**: faster-whisper (model Whisper „small”, CPU int8, automatycznie CUDA float16, jeśli dostępna) daje
+transkrypt z wykrytym językiem i znacznikami czasu. Transkrypt zasila kanał treści, wykrywanie deklaracji AI (źródło
+`asr:<plik>`), osoby, marki, temat i analizę manipulacji. Wynik jest cache'owany w `data/cache/asr/`.
 
 Dla każdego materiału liczymy też **kompletność danych** (czy jest log sieci, strona, obraz, wideo, metadane
 reklamy) i ostrzeżenia. Brak HAR oznacza mniej dowodów i słabsze przypisanie, a nie brak powiązania.
@@ -89,7 +93,7 @@ Poziomy 3 i 4 wymagają sygnału AI, zgodnie z założeniem: wizerunek osoby pub
 podszycie. Wskaźniki (osoba publiczna, manipulacja) są raportowane zawsze, także przy niskiej lampce.
 
 **Manipulacja**: słownik kategorii (presja czasu, sekret i spisek, nierealne zyski, cudowne leczenie, strach i szok,
-fałszywy autorytet) z cytatami trafień, plus styl (wykrzykniki, wersaliki). Wynik łączy szerokość (ile kategorii),
+fałszywy autorytet, przynęta „rządowej dopłaty”) z cytatami trafień, plus styl (wykrzykniki, wersaliki). Wynik łączy szerokość (ile kategorii),
 gęstość i styl. Jeśli skonfigurowano lokalny LLM (Bielik przez Ollama), jego ocena jest mieszana z wynikiem
 słownikowym, a uzasadnienie i techniki trafiają do UI.
 
@@ -98,19 +102,31 @@ słownikowym, a uzasadnienie i techniki trafiają do UI.
 Idea: materiały, które **same deklarują AI**, są darmowymi przykładami pozytywnymi. Model uczy się z nich, jak
 wyglądają treści AI w tym strumieniu, i wskazuje podobne materiały bez deklaracji.
 
-- **Cechy obrazu** (23 wymiary): 16-przedziałowy radialny profil widma Fouriera, udział wysokich częstotliwości,
-  odchylenie i kurtoza rezyduum szumu (obraz minus filtr medianowy), wariancja laplasjanu (ostrość i gładkość),
-  średnia i rozrzut nasycenia oraz jasności. Przed liczeniem cech maskujemy
-  ramki OCR z tekstem deklaracji, żeby model nie nauczył się czytać podpisu „wygenerowano przez AI”.
+- **Cechy obrazu**: embedding CLIP ViT-L/14 (768 wymiarów, ONNX, lokalnie) oraz 23 cechy widmowe: 16-przedziałowy
+  radialny profil widma Fouriera, udział wysokich częstotliwości, odchylenie i kurtoza rezyduum szumu, wariancja
+  laplasjanu, średnia i rozrzut nasycenia oraz jasności. Przed liczeniem cech maskujemy ramki OCR z tekstem
+  deklaracji, żeby model nie nauczył się czytać podpisu „wygenerowano przez AI”.
+- **Normalizacja „jak w sieci”**: każdy obraz (korpus i zbiór) jest skalowany do maks. 1024 px i przepuszczany przez
+  JPEG q85. Bez tego model uczy się skrótu „PNG z generatora vs JPEG z aparatu”, a nie cech generowania.
+- **Korpus startowy**: OpenFake (CC-BY-NC-4.0) – obrazy z ponad 50 generatorów (pozytywy, źródło `seed:ai/<generator>`)
+  i zdjęcia prawdziwe (negatywy). Pobierany na żądanie do `data/ai_seed/`.
 - **Etykiety na poziomie obrazu**: pozytywny jest obraz, którego dotyczy deklaracja (metadane lub OCR tego pliku).
   Deklaracja tekstowa na stronie oznacza wszystkie obrazy materiału. Analityk może oznaczyć materiał jako AI albo
   nie AI.
-- **Uczenie PU** (positive-unlabeled, Elkan i Noto 2008): brak deklaracji to nie „prawdziwe”, tylko „nieoznaczone”.
-  Regresja logistyczna uczy się rozróżniać oznaczone od nieoznaczonych, a wynik jest kalibrowany przez
+- **Tryb uczenia**: przy co najmniej 20 negatywach (korpus albo oceny „to nie AI”) regresja logistyczna uczy się
+  nadzorowanie AI vs nie-AI, a materiały nieoznaczone służą tylko do kontroli. Bez negatywów działa uczenie PU
+  (positive-unlabeled, Elkan i Noto 2008): brak deklaracji to „nieoznaczone”, a wynik kalibruje
   \( c = P(s{=}1 \mid y{=}1) \).
-- **Bramka wiarygodności**: wynik detektora podnosi lampkę dopiero przy co najmniej 20 pozytywach z co najmniej
-  3 różnych materiałów. Wcześniej jest tylko informacyjny („detektor w trakcie nauki”). Zapobiega to sytuacji,
-  w której model wytrenowany na jednej kampanii oznacza wszystko na czerwono.
+- **Uczciwa walidacja**: AUC liczone w GroupKFold, gdzie pozytywy są grupowane po źródle (generatorze albo
+  materiale). Model ocenia więc generatory, których nie widział w treningu.
+- **Bramka wiarygodności**: wynik detektora podnosi lampkę dopiero, gdy jednocześnie: co najmniej 20 pozytywów
+  z co najmniej 3 źródeł, AUC na niewidzianych źródłach \(\ge 0.80\) oraz najwyżej 35% obrazów zbioru z wynikiem
+  \(\ge 0.60\). Ostatni warunek wykrywa przesunięcie domeny: model, który oznacza większość zbioru jako AI, nie
+  rozróżnia AI od zrzutów ekranu, tylko „korpus” od „zbioru”. Wcześniej wynik jest tylko informacyjny.
+- **Stan na zbiorze demonstracyjnym**: 370 pozytywów (53 generatory), 424 negatywy, AUC 0,85 na niewidzianych
+  generatorach, ale 73% obrazów zbioru oflagowanych (zrzuty ekranu, klatki wideo, grafiki stron to inna domena
+  niż zdjęcia z korpusu). Bramka słusznie blokuje lampki. Lekarstwem są negatywy z domeny: oceny analityka „to nie
+  AI” na kilku materiałach albo legalne zrzuty reklam i stron dodane do korpusu.
 - **Propagacja deklaracji**: jeśli obraz jest percepcyjnie identyczny (pHash \(\le 6\) bitów) z obrazem
   zadeklarowanym jako AI w innym materiale, a tu deklaracji brak, to ktoś ją usunął. Lampka czerwona z dowodem
   wskazującym źródło.
@@ -130,10 +146,10 @@ tożsamości.
 
 ## 8. Ograniczenia i dalszy rozwój
 
-- Brak transkrypcji mowy (ASR). Wideo bez tekstu na ekranie wnosi tylko twarze i obrazy. Naturalnym rozszerzeniem
-  jest faster-whisper, którego transkrypt trafi do kanału treści i analizy manipulacji.
-- Detektor AI na cechach spektralnych to baseline. Przy większej liczbie deklaracji można podmienić głowicę na
-  embeddingi CLIP lub DINOv2 bez zmiany procesu etykietowania.
+- Detektor AI wymaga negatywów z domeny (zrzuty reklam i stron bez AI), żeby przejść bramkę na realnym strumieniu.
+  Kolejnym krokiem może być detekcja wideo deepfake (twarz, synchronizacja ust z transkryptem).
+- ASR na CPU przetwarza ok. 3 minuty nagrania w kilkadziesiąt sekund. Na GPU NVIDIA warto ustawić
+  `FK_ASR_MODEL=large-v3`.
 - RDAP, DNS i pasywne DNS wymagają dostępu do sieci (`FK_ENABLE_ONLINE=1`). Offline korzystamy z tego, co zapisano
   w HAR.
 - Progi (0.55 i 0.30) dobrano na zbiorze demonstracyjnym i warto je skalibrować na większym zbiorze z etykietami

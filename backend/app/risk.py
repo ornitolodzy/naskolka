@@ -18,6 +18,7 @@ def assess(
     analyst_labels: dict[str, str] | None = None,
     detector_reliable: bool = False,
     propagated: list[dict] | None = None,
+    detector_trained: bool = False,
 ) -> dict:
     analyst_labels = analyst_labels or {}
     propagated = propagated or []
@@ -52,7 +53,9 @@ def assess(
             reasons.append(f"detektor AI: {ai_score:.2f} ≥ {AI_DETECTED_THRESHOLD}, brak deklaracji")
     else:
         level = 0
-        if ai_score is None:
+        if ai_score is None and detector_trained:
+            reasons.append("brak obrazów do oceny przez detektor AI")
+        elif ai_score is None:
             reasons.append("detektor AI nie jest jeszcze wytrenowany (brak deklaracji do nauki)")
         elif not detector_reliable:
             reasons.append(f"detektor AI w trakcie nauki: wynik {ai_score:.2f} tylko informacyjnie")

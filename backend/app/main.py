@@ -175,6 +175,11 @@ def train_ai():
     return svc().train_ai()
 
 
+@app.post("/api/v1/ai/seed")
+def fetch_seed(shards: int = 10):
+    return svc().fetch_seed(max(1, min(shards, 32)))
+
+
 @app.get("/api/v1/export")
 def export():
     return JSONResponse(

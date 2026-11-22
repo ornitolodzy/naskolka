@@ -71,6 +71,10 @@ export class Api {
     return this.http.post<Record<string, unknown>>(`${this.base}/ai/train`, {});
   }
 
+  fetchSeed(shards = 10): Observable<Record<string, unknown>> {
+    return this.http.post<Record<string, unknown>>(`${this.base}/ai/seed`, {}, { params: { shards } });
+  }
+
   reprocessAll(): Observable<{ queued: number }> {
     return this.http.post<{ queued: number }>(`${this.base}/reprocess`, {});
   }

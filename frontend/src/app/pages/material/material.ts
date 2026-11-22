@@ -26,6 +26,7 @@ const DECISION_PL: Record<string, string> = {
     .kv dd { margin: 0; }
     .decision { font-size: 20px; font-weight: 700; }
     .tok { display: flex; flex-wrap: wrap; gap: 4px; }
+    .transcript { max-height: 280px; overflow: auto; display: grid; gap: 2px; padding: 6px 0; }
   `,
 })
 export class MaterialPage implements OnDestroy {

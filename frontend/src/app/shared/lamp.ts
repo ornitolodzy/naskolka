@@ -56,6 +56,6 @@ export class LampView {
   protected readonly names = NAMES;
   protected readonly score = computed(() => {
     const s = this.lamp()?.indicators.ai_score;
-    return s === null || s === undefined ? 'brak modelu' : s.toFixed(2);
+    return s === null || s === undefined ? 'brak oceny' : s.toFixed(2);
   });
 }

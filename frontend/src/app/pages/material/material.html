@@ -134,6 +134,18 @@
           <h3 style="margin-top: 12px">Nagłówki</h3>
           <ul class="small">@for (h of f.text.headings.slice(0, 8); track $index) { <li>{{ h }}</li> }</ul>
         }
+        @for (t of f.text.transcripts ?? []; track t.src) {
+          <details open>
+            <summary class="small">
+              Transkrypcja mowy: {{ t.src }} ({{ t.language }}, {{ t.duration | number: '1.0-0' }} s)
+            </summary>
+            <div class="transcript">
+              @for (s of t.segments; track $index) {
+                <div class="small"><span class="muted mono">{{ s.start | number: '1.0-0' }}s</span> {{ s.text }}</div>
+              }
+            </div>
+          </details>
+        }
         <details>
           <summary class="small">Tekst strony ({{ f.summary.text_chars }} znaków)</summary>
           <pre class="body">{{ f.text.body }}</pre>
@@ -171,6 +183,19 @@
             <dd>@for (vd of f.video; track $index) { <div class="small">{{ vd.src }}: {{ vd.duration_s }} s, {{ vd.width }}×{{ vd.height }}</div> }</dd>
           }
         </dl>
+        @if (f.ai.image_scores?.length) {
+          <h3 style="margin-top: 12px">Detektor AI: najwyżej ocenione obrazy</h3>
+          @for (s of f.ai.image_scores; track s.src) {
+            <div class="small row">
+              <div class="bar" style="width: 90px"><span [style.width.%]="s.p * 100"></span></div>
+              <strong>{{ s.p | number: '1.2-2' }}</strong>
+              <span class="muted">{{ s.src }}</span>
+            </div>
+          }
+          @if (!v.lamp?.indicators?.ai_detector_reliable) {
+            <div class="muted small">Detektor nie spełnia jeszcze progów wiarygodności, więc wynik nie wpływa na lampkę.</div>
+          }
+        }
         @if (f.text.ocr.length) {
           <details>
             <summary class="small">Tekst z obrazów (OCR, {{ f.text.ocr.length }})</summary>

@@ -32,18 +32,46 @@ def main(argv: list[str] | None = None) -> int:
     imp.add_argument("--path", default=None)
     sub.add_parser("report")
     sub.add_parser("models")
+    sd = sub.add_parser("seed")
+    sd.add_argument("--shards", type=int, default=3)
+    sub.add_parser("train")
+    sub.add_parser("reprocess")
     args = ap.parse_args(argv)
 
     if args.cmd == "models":
-        from .features import faces
+        from .features import asr, clip, faces
 
-        ok = faces.ensure_models()
-        print("modele twarzy:", "OK" if ok else "BŁĄD")
-        return 0 if ok else 1
+        ok_faces = faces.ensure_models()
+        ok_clip = clip.ensure_model()
+        ok_asr = asr._model() is not None if asr.available() else False
+        print("modele twarzy:", "OK" if ok_faces else "BŁĄD")
+        print("CLIP:", "OK" if ok_clip else "BŁĄD")
+        print(f"Whisper ({asr.info()['model']}, {asr.info()['device']}):", "OK" if ok_asr else "BŁĄD")
+        return 0 if ok_faces and ok_clip and ok_asr else 1
+
+    if args.cmd == "seed":
+        from . import seed
+
+        print(seed.fetch_openfake(shards=args.shards))
+        print(seed.summary())
+        return 0
 
     from .service import Service
 
     svc = Service()
+    if args.cmd == "train":
+        import json
+
+        print(json.dumps(svc.train_ai(), ensure_ascii=False, indent=2))
+        svc.pool.shutdown(wait=True)
+        return 0
+    if args.cmd == "reprocess":
+        n = svc.reprocess_all()
+        print(f"przetwarzam ponownie {n} materiałów...")
+        t0 = time.time()
+        while any(r["status"] in {"pending", "processing"} for r in svc.store.all(with_features=False)):
+            time.sleep(2)
+        print(f"gotowe w {time.time() - t0:.0f} s")
     if args.cmd == "import":
         state = svc.import_dataset(Path(args.path) if args.path else None)
         print(f"importuję {state.get('total')} incydentów...")
