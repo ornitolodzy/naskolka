@@ -42,12 +42,12 @@ const NAMES = ['zielona', 'żółta', 'czerwona', 'osoba publiczna', 'manipulacj
   `,
   styles: `
     .steps { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-    .step { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
-      border: 1px solid var(--fk-line); font-size: 12.5px; opacity: 0.45; }
+    .step { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-xs);
+      border: 1px solid var(--naskolka-border-subtle); font-size: 12.5px; opacity: 0.45; }
     .step.on { opacity: 1; }
-    .step.current { border-color: var(--fk-ink); font-weight: 700; background: var(--fk-surface-2); }
-    .label { font-weight: 700; font-size: 17px; }
-    .reasons { margin: 6px 0 10px; padding-left: 18px; color: var(--fk-ink-soft); }
+    .step.current { border-color: var(--naskolka-text-heading); font-weight: 700; background: var(--naskolka-bg-canvas); }
+    .label { font-weight: 600; font-size: 18px; line-height: 1.4; color: var(--naskolka-text-heading); }
+    .reasons { margin: 6px 0 10px; padding-left: 18px; color: var(--naskolka-text-secondary); }
   `,
 })
 export class LampView {

@@ -50,10 +50,11 @@ import { Api } from '../../core/api.service';
   `,
   styles: `
     .field { display: grid; gap: 4px; }
-    .field span { font-size: 13px; color: var(--fk-ink-soft); }
-    .field input { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--fk-line); background: var(--fk-surface-2); }
-    .drop { border: 2px dashed var(--fk-line); border-radius: 12px; padding: 18px; text-align: center; background: var(--fk-surface-2); }
-    .drop.over { border-color: var(--fk-accent); background: var(--fk-accent-soft); }
+    .field span { font-size: 13px; color: var(--naskolka-text-secondary); }
+    .field input { padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--naskolka-border-subtle); background: var(--naskolka-bg-canvas); }
+    .field input:focus { border-color: var(--naskolka-accent-primary); outline: none; }
+    .drop { border: 2px dashed var(--naskolka-border-subtle); border-radius: var(--radius-md); padding: 18px; text-align: center; background: var(--naskolka-bg-canvas); }
+    .drop.over { border-color: var(--naskolka-accent-primary); background: var(--naskolka-accent-tint); }
     .drop ul { text-align: left; }
   `,
 })
