@@ -68,7 +68,7 @@ import { SystemStatus } from '../../core/models';
               </tbody>
             </table>
             <div class="notice" [class.warn]="!d.reliable">
-              {{ d.reliable ? 'Model wiarygodny: może zapalać czerwoną lampkę.' : 'Model niewiarygodny: wynik jest tylko informacyjny. Najczęstszy powód to brak przykładów nie-AI z tej samej domeny (reklamy, zrzuty stron, klatki wideo). Oznacz kilka materiałów jako „to nie AI”.' }}
+              {{ d.reliable ? 'Model wiarygodny: wykryte AI trafia do lampki jako atrybut i czynnik ryzyka.' : 'Model niewiarygodny: wynik jest tylko informacyjny. Najczęstszy powód to brak przykładów nie-AI z tej samej domeny (reklamy, zrzuty stron, klatki wideo). Oznacz kilka materiałów jako „to nie AI”.' }}
             </div>
           } @else {
             <p class="muted small">{{ d.reason || 'Model jeszcze nie był trenowany.' }}</p>

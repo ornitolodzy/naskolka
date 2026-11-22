@@ -16,6 +16,7 @@ from .features.infra import (
     RdapClient,
     find_trackers,
     is_public_cdn_host,
+    text_domains,
     registrable_domain,
     shared_network,
     tld,
@@ -396,7 +397,11 @@ def _finalize(material: Material, acc: Acc, elapsed: float) -> dict:
     if topics:
         acc.tok("topic", next(iter(topics)))
 
-    manipulation = manipulation_analysis(title_text + "\n" + body[:60_000])
+    manipulation = manipulation_analysis(title_text + "\n" + body[:60_000], person_sources, topics, brands)
+    landing_set = set(landing_domains)
+    for d in text_domains(body):
+        if d not in landing_set:
+            acc.tok("text_domain", d)
     decl_text = find_ai_declarations(title_text + " " + body)
     for d in decl_text:
         if not any(x["text"] == d for x in acc.ai_decl):

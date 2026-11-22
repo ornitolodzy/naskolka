@@ -41,6 +41,7 @@ class ImportRequest(BaseModel):
 
 class LabelRequest(BaseModel):
     ai: bool | None = None
+    scam: bool | None = None
 
 
 @app.get("/health")
@@ -135,6 +136,8 @@ def label_material(mid: str, body: LabelRequest):
         raise HTTPException(404, "nie ma takiego materiału")
     if body.ai is not None:
         svc().store.set_label(mid, "ai", "true" if body.ai else "false")
+    if body.scam is not None:
+        svc().store.set_label(mid, "scam", "true" if body.scam else "false")
     return svc().store.labels().get(mid, {})
 
 

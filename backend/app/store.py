@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
-from .ingest.collect import long_path
 from .models import Artifact, Material
 
 _SCHEMA = """
@@ -42,6 +42,7 @@ class Store:
     def __init__(self, db_path: Path):
         db_path.parent.mkdir(parents=True, exist_ok=True)
         self._base = db_path.parent.resolve()
+        self._base_str = str(self._base)
         self._lock = threading.RLock()
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
@@ -58,9 +59,12 @@ class Store:
         return REL_PREFIX + rel.as_posix()
 
     def _from_stored(self, path: str) -> str:
-        if path.startswith(REL_PREFIX):
-            return long_path(self._base / path[len(REL_PREFIX):])
-        return path
+        if not path.startswith(REL_PREFIX):
+            return path
+        full = os.path.normpath(os.path.join(self._base_str, path[len(REL_PREFIX):]))
+        if os.name == "nt" and not full.startswith("\\\\?\\"):
+            return "\\\\?\\" + full
+        return full
 
     def _relativize_existing(self) -> None:
         with self._lock:

@@ -11,6 +11,7 @@ const DECISION_PL: Record<string, string> = {
   known_campaign: 'Znana kampania',
   related: 'Pokrewna kampania / nowy wariant',
   new_pattern: 'Nowy wzorzec',
+  duplicate: 'Duplikat (ponowne zgłoszenie)',
 };
 
 @Component({
@@ -50,6 +51,7 @@ export class MaterialPage implements OnDestroy {
       'phone_pl', 'email', 'advertiser', 'advertiser_id'];
     return keys.filter((k) => t[k]).map((k) => ({ key: k, values: Object.keys(t[k]) }));
   });
+  protected readonly textDomains = computed(() => Object.keys(this.f()?.tokens?.['text_domain'] ?? {}));
   private timer?: ReturnType<typeof setTimeout>;
 
   constructor() {
@@ -74,8 +76,8 @@ export class MaterialPage implements OnDestroy {
     return this.api.artifactUrl(this.id(), index);
   }
 
-  label(ai: boolean): void {
-    this.api.label(this.id(), ai).subscribe(() => this.load(this.id()));
+  label(body: { ai?: boolean; scam?: boolean }): void {
+    this.api.label(this.id(), body).subscribe(() => this.load(this.id()));
   }
 
   reprocess(): void {
