@@ -61,6 +61,26 @@
 html, body { margin: 0; }
 /* Stałe miejsce na pasek przewijania — szerokość layoutu nie skacze między zakładkami. */
 html { scrollbar-gutter: stable; overflow-y: scroll; }
+
+/* --- Własny pasek przewijania (Chromium/Safari: ::-webkit-scrollbar, Firefox: scrollbar-color) --- */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: var(--naskolka-bg-canvas); }
+::-webkit-scrollbar-thumb {
+  background: var(--naskolka-border-subtle);
+  border: 3px solid var(--naskolka-bg-canvas);
+  border-radius: var(--radius-xs);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--naskolka-text-secondary); }
+::-webkit-scrollbar-thumb:active { background: var(--naskolka-accent-primary); }
+::-webkit-scrollbar-corner { background: var(--naskolka-bg-canvas); }
+/* Wewnątrz kart tor ma kolor powierzchni karty */
+.card ::-webkit-scrollbar-track, .card::-webkit-scrollbar-track,
+.card ::-webkit-scrollbar-corner, .card::-webkit-scrollbar-corner { background: transparent; }
+.card ::-webkit-scrollbar-thumb, .card::-webkit-scrollbar-thumb { border-color: var(--naskolka-bg-surface); }
+@supports not selector(::-webkit-scrollbar) {
+  html, * { scrollbar-color: var(--naskolka-border-subtle) transparent; scrollbar-width: thin; }
+  html { scrollbar-color: var(--naskolka-border-subtle) var(--naskolka-bg-canvas); }
+}
 body {
   background: var(--naskolka-bg-canvas);
   color: var(--naskolka-text-primary);
@@ -126,7 +146,19 @@ button, input, select, textarea { font: inherit; }
   box-shadow: 0 4px 12px -4px rgb(163 59 36 / 0.6);
 }
 
-.page { max-width: 1320px; margin: 0 auto; padding: 24px 28px 64px; }
+.page { max-width: 1320px; margin: 0 auto; padding: 24px 28px 72px; }
+
+/* --- Stopka (zawsze widoczna) --- */
+.footer {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 9;
+  padding: 8px 16px; text-align: center;
+  font-size: 12px; line-height: 1.4; letter-spacing: 0.04em;
+  color: var(--naskolka-text-secondary);
+  background: rgb(244 235 225 / 0.88);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid var(--naskolka-border-subtle);
+  view-transition-name: footer;
+}
 
 /* --- Karuzela między zakładkami (View Transitions API) ---
    Baner zostaje w miejscu, przesuwa się tylko treść pod nim. Kierunek
@@ -137,8 +169,12 @@ button, input, select, textarea { font: inherit; }
 ::view-transition-new(root),
 ::view-transition-group(topbar),
 ::view-transition-old(topbar),
-::view-transition-new(topbar) { animation: none; }
-::view-transition-group(topbar) { z-index: 2; }
+::view-transition-new(topbar),
+::view-transition-group(footer),
+::view-transition-old(footer),
+::view-transition-new(footer) { animation: none; }
+::view-transition-group(topbar),
+::view-transition-group(footer) { z-index: 2; }
 ::view-transition-group(page) { animation-duration: 0.38s; }
 ::view-transition-old(page),
 ::view-transition-new(page) {
@@ -151,6 +187,17 @@ button, input, select, textarea { font: inherit; }
 :root[data-nav-dir='next']::view-transition-new(page) { animation-name: page-in-right; }
 :root[data-nav-dir='prev']::view-transition-old(page) { animation-name: page-out-right; }
 :root[data-nav-dir='prev']::view-transition-new(page) { animation-name: page-in-left; }
+
+/* „Nowa analiza” jak arkusz: wjeżdża od dołu, przy wyjściu chowa się w dół */
+:root[data-nav-dir='up']::view-transition-old(page) { animation-name: page-recede; }
+:root[data-nav-dir='up']::view-transition-new(page) { animation-name: sheet-in-up; }
+:root[data-nav-dir='down']::view-transition-old(page) { animation-name: sheet-out-down; z-index: 1; }
+:root[data-nav-dir='down']::view-transition-new(page) { animation-name: page-emerge; }
+
+@keyframes sheet-in-up    { from { transform: translateY(100vh); } }
+@keyframes sheet-out-down { to   { transform: translateY(100vh); } }
+@keyframes page-recede    { to   { transform: scale(0.97); opacity: 0; } }
+@keyframes page-emerge    { from { transform: scale(0.97); opacity: 0; } }
 
 @keyframes page-out-left  { to   { transform: translateX(-100%); opacity: 0; } }
 @keyframes page-out-right { to   { transform: translateX(100%);  opacity: 0; } }

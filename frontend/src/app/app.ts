@@ -23,6 +23,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
       </nav>
     </header>
     <main class="page"><router-outlet /></main>
+    <footer class="footer">HackNation 2026</footer>
   `,
 })
 export class App {}
