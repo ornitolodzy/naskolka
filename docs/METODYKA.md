@@ -79,23 +79,71 @@ Nowy materiał przechodzi tę samą ekstrakcję i dostaje jedną z decyzji:
 
 ## 5. Lampki ryzyka
 
-Lampki to warstwa niezależna od kampanii: oceniają pojedynczy materiał.
+Lampka odpowiada na pytania z treści zadania: czy materiał wygląda na oszustwo i czy da się go przypisać do
+wcześniej rozpoznanej kampanii, czy to nowy wzorzec.
 
 | Poziom | Kolor | Warunek |
 | --- | --- | --- |
-| 0 | zielona | brak sygnału AI |
-| 1 | żółta | **zadeklarowano AI**: podpis lub etykieta w tekście lub OCR, metadane C2PA/JUMBF, IPTC `trainedAlgorithmicMedia`, SynthID, EXIF Software z generatorem |
-| 2 | czerwona | **AI wykryte bez deklaracji**: wiarygodny detektor \(\ge 0.60\), ocena analityka albo propagacja deklaracji |
-| 3 | fioletowa | poziom 1 lub 2 **i** osoba publiczna (twarz z galerii albo nazwisko w treści) |
-| 4 | czarna | poziom 3 **i** manipulacyjny przekaz (wynik \(\ge 0.40\)) |
+| 0 | zielona | ryzyko oszustwa < 0.35 i brak powiązań ze zgłoszonymi oszustwami (albo analityk: „to nie oszustwo”) |
+| 1 | żółta | **podejrzany**: ryzyko 0.35–0.65 albo techniczne podobieństwo (rodzina) do zgłoszonego oszustwa |
+| 2 | pomarańczowa | **wysokie ryzyko, nowy wzorzec**: ryzyko \(\ge 0.65\) (albo analityk: „to oszustwo”), ale bez twardego powiązania ze znaną kampanią |
+| 3 | czerwona | **część znanej kampanii oszustw**: ta sama kampania (twarde ślady techniczne) co materiał zgłoszony jako oszustwo, albo duplikat takiego materiału |
 
-Poziomy 3 i 4 wymagają sygnału AI, zgodnie z założeniem: wizerunek osoby publicznej w treści syntetycznej to
-podszycie. Wskaźniki (osoba publiczna, manipulacja) są raportowane zawsze, także przy niskiej lampce.
+„Zgłoszone oszustwa” to materiały ze zbioru referencyjnego NASK oraz materiały potwierdzone przez analityka.
+Każde potwierdzenie rozszerza bazę, więc kolejne warianty tej samej kampanii dostają czerwoną lampkę.
+
+Obok lampki zawsze pokazujemy **atrybuty**, które nie zmieniają koloru wprost, tylko wchodzą do oceny ryzyka:
+- **AI**: zadeklarowane (podpis, etykieta, C2PA, IPTC, SynthID), wykryte bez deklaracji (wiarygodny detektor,
+  analityk, propagacja deklaracji z identycznego obrazu), możliwe (detektor w nauce) albo brak;
+- **osoba publiczna**: z twarzy (SFace) lub tylko z nazwiska;
+- **manipulacja**: wynik 0–1 z kategoriami i cytatami;
+- **kampania** i **duplikaty**.
 
 **Manipulacja**: słownik kategorii (presja czasu, sekret i spisek, nierealne zyski, cudowne leczenie, strach i szok,
-fałszywy autorytet, przynęta „rządowej dopłaty”) z cytatami trafień, plus styl (wykrzykniki, wersaliki). Wynik łączy szerokość (ile kategorii),
-gęstość i styl. Jeśli skonfigurowano lokalny LLM (Bielik przez Ollama), jego ocena jest mieszana z wynikiem
-słownikowym, a uzasadnienie i techniki trafiają do UI.
+fałszywy autorytet, przynęta „rządowej dopłaty”) z cytatami trafień, plus styl (wykrzykniki, wersaliki).
+
+**Lokalny LLM (Bielik 11B v2.3 przez Ollama)** dostaje tekst strony, OCR i transkrypcję i zwraca ustrukturyzowany
+JSON: streszczenie, schemat oszustwa z zamkniętej listy (fałszywa platforma inwestycyjna, fałszywy wywiad,
+cudowny lek, fałszywa dopłata, loteria, hazard, sklep, phishing), nazwę produktu lub platformy, obietnicę, pod kogo
+się podszywa, wezwanie do działania, techniki oraz oceny manipulacji i oszustwa. Wynik jest normalizowany
+(wartości spoza listy, puste lub opisowe nazwy produktów są odrzucane) i cache'owany. Nazwa produktu staje się
+cechą korelacji (kanał treści, 0.60), schemat cechą narracji (0.15), ocena oszustwa \(\ge 0.6\) czynnikiem ryzyka
+(\(0.35 \cdot p\)), a ocena manipulacji jest mieszana z wynikiem słownikowym. Bez LLM wszystko działa na
+słownikach i regułach.
+
+**Kontekst manipulacji**: poza słownikiem liczą się dwa wzorce złożone. *Fałszywa rekomendacja*: twarz osoby
+publicznej na obrazie (albo nazwa pliku) w materiale o inwestycjach, zdrowiu, hazardzie, loterii lub dopłatach.
+*Podszywanie się pod medium*: marka redakcji (money.pl, Onet, TVN24…) w takim samym kontekście. Samo nazwisko
+w tekście nie wystarcza, żeby zwykły news o biznesie nie był oznaczany. Kategorie łączymy noisy-OR z wagami
+(np. nierealne zyski 0.35, fałszywa rekomendacja 0.45), a każde dodatkowe trafienie w kategorii podnosi jej wagę
+o 15%.
+
+**Ryzyko oszustwa** łączy wyjaśnialne czynniki metodą noisy-OR:
+
+| Czynnik | Waga |
+| --- | --- |
+| wizerunek osoby publicznej (twarz) w reklamie finansowej lub zdrowotnej | 0.55 (samo nazwisko: 0.15–0.30) |
+| obietnica łatwych pieniędzy | 0.30 + 0.07 za każde kolejne trafienie |
+| podszywanie się pod medium | 0.30 |
+| inne kategorie manipulacji | 0.6 × waga kategorii |
+| adres strony podany w treści reklamy (np. napis na grafice) | 0.20 |
+| ta sama kampania co zgłoszone oszustwa (twarde ślady) | 0.55 |
+| techniczne podobieństwo do zgłoszonych oszustw | 0.30 |
+| syntetyczny wizerunek osoby publicznej (AI + twarz) | 0.45 |
+| treść AI bez deklaracji | 0.30 |
+| ocena oszustwa przez LLM \(p \ge 0.6\) | \(0.35 \cdot p\) |
+| materiał ze zbioru zgłoszonych oszustw | 0.40 |
+
+Poziomy: wysokie \(\ge 0.65\), podwyższone \(\ge 0.35\), niskie poniżej. Każdy czynnik jest pokazany w UI
+z cytatem lub dowodem.
+
+**Domeny z treści**: domeny wypisane na grafikach (OCR), w tekście i w mowie stają się cechą korelacji. Ta sama
+domena w dwóch reklamach albo domena z grafiki jednej reklamy będąca domeną strony innego materiału to silny dowód
+(0.90). Pomijamy znane serwisy (media, platformy społecznościowe), a serwisy fact-checkingowe i archiwa (Demagog,
+Konkret24, archive.org) nie są w ogóle traktowane jako infrastruktura, bo tylko hostują zrzut oszustwa.
+
+**Duplikaty**: ponowne zgłoszenie tego samego adresu albo identycznych plików jest oznaczane jako duplikat,
+a nie jako „kampania” złożona z kopii jednego materiału.
 
 ## 6. Samouczący się detektor AI
 

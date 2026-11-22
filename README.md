@@ -18,21 +18,27 @@ Wyzwanie NASK „Kolekcjoner fejków”, HackNation 2026. Szczegóły metody: [d
   faster-whisper (Whisper „small”, CPU int8, automatycznie CUDA, jeśli jest karta NVIDIA).
 - **Kampanie i rodziny kampanii**: sygnatura każdej kampanii, interaktywny graf powiązań, porównanie dowolnej pary
   materiałów z rozbiciem na kanały.
-- **Lampki ryzyka**:
+- **Lampki ryzyka** (oszustwo i przypisanie do kampanii):
 
   | Kolor | Znaczenie |
   | --- | --- |
-  | zielona | brak sygnału AI |
-  | żółta | treść zadeklarowana jako AI |
-  | czerwona | AI wykryte bez deklaracji |
-  | fioletowa | AI + wizerunek osoby publicznej |
-  | czarna | AI + osoba publiczna + manipulacyjny przekaz |
+  | zielona | brak sygnałów oszustwa |
+  | żółta | podejrzany: pojedyncze sygnały albo podobieństwo do zgłoszonego oszustwa |
+  | pomarańczowa | wysokie ryzyko oszustwa, ale nowy wzorzec (brak twardego powiązania ze znaną kampanią) |
+  | czerwona | część znanej kampanii oszustw (twarde ślady wspólne ze zgłoszonym materiałem) |
 
+  Atrybuty pokazywane obok lampki: AI (zadeklarowane / wykryte / możliwe), osoba publiczna (twarz lub nazwisko),
+  manipulacja, kampania, duplikaty. Pod lampką jest rozwijana lista czynników ryzyka z wagami i cytatami.
+  Analityk może potwierdzić „to oszustwo” albo „to nie oszustwo”.
+- **Ryzyko oszustwa**: wyjaśnialna ocena z czynnikami takimi jak twarz osoby publicznej w reklamie finansowej,
+  obietnica łatwych pieniędzy, podszywanie się pod medium, adres strony na grafice, ocena Bielika i powiązanie
+  ze zgłoszonymi kampaniami. Domeny z grafik i mowy oraz nazwy produktów (z LLM) łączą reklamy w kampanie,
+  a ponowne zgłoszenia są oznaczane jako duplikaty.
 - **Samouczący się detektor AI**: cechy CLIP ViT-L/14 i widmowe, uczony na korpusie startowym OpenFake (obrazy
   z ponad 50 generatorów i zdjęcia prawdziwe), materiałach, które same deklarują AI (podpis, etykieta platformy,
-  metadane C2PA, IPTC lub SynthID), oraz ocenach analityka. Lampki zapala dopiero wtedy, gdy przejdzie bramkę
-  jakości: co najmniej 20 przykładów AI z 3 źródeł, AUC ≥ 0,80 na niewidzianych generatorach i najwyżej 35%
-  oflagowanych materiałów zbioru (ochrona przed przesunięciem domeny).
+  metadane C2PA, IPTC lub SynthID), oraz ocenach analityka. Jego wynik liczy się dopiero wtedy, gdy przejdzie
+  bramkę jakości: co najmniej 20 przykładów AI z 3 źródeł, AUC ≥ 0,80 na niewidzianych generatorach i najwyżej
+  35% oflagowanych materiałów zbioru (ochrona przed przesunięciem domeny).
 - **Eksport** wzbogaconego zbioru (cechy, kampanie, powiązania, lampki) do JSON.
 
 ## Uruchomienie (Docker)
@@ -49,13 +55,22 @@ Dane trzymane są w `./data`, który jest montowany do kontenera:
 2. Kliknij **Importuj zbiór**. Pierwszy import 10 incydentów trwa około 7 minut na CPU (OCR i wideo), kolejne korzystają
    z cache.
 
-Opcjonalny lokalny LLM do analizy narracji (Bielik przez Ollama):
+Opcjonalny LLM do analizy narracji (Bielik 11B v2.3 przez Ollama), na jeden z dwóch sposobów:
 
 ```bash
+# A) Ollama na serwerze z GPU przez tunel SSH (tak działa demo)
+ssh -N -L 127.0.0.1:21434:127.0.0.1:11434 <login>@<serwer>
+# w .env: FK_OLLAMA_URL=http://host.docker.internal:21434
+
+# B) Ollama lokalnie w kontenerze
 docker compose --profile llm up -d
 docker compose exec ollama ollama pull SpeakLeash/bielik-11b-v2.3-instruct:Q4_K_M
-# w .env: FK_OLLAMA_URL=http://ollama:11434, potem: docker compose up -d backend
+# w .env: FK_OLLAMA_URL=http://ollama:11434
+
+docker compose up -d backend
 ```
+
+Na stronie **System** widać, czy LLM jest osiągalny. Wynik każdego materiału jest cache'owany w `data/cache/llm/`.
 
 Bez LLM analiza manipulacji działa na słownikach i regułach. Żadne dane nie są wysyłane do zewnętrznych usług.
 Wzbogacanie online (RDAP i DNS) jest domyślnie wyłączone (`FK_ENABLE_ONLINE=1`, żeby je włączyć).

@@ -1,19 +1,33 @@
 export interface Lamp {
-  level: 0 | 1 | 2 | 3 | 4;
-  color: 'green' | 'yellow' | 'red' | 'purple' | 'black';
+  level: 0 | 1 | 2 | 3;
+  color: 'green' | 'yellow' | 'orange' | 'red';
   label: string;
   reasons: string[];
+  scam?: ScamRisk;
+  ai?: { status: 'declared' | 'detected' | 'possible' | 'none'; text: string; declarations: string[] };
   indicators: {
     ai_declared: boolean;
     ai_score: number | null;
     ai_detector_reliable: boolean;
     ai_detected: boolean;
+    ai_status?: 'declared' | 'detected' | 'possible' | 'none';
     ai_propagated: { src: string; material: string; declared_src: string; distance: number }[];
     public_person: boolean;
     public_person_strong: boolean;
+    public_persons?: string[];
     manipulation_score: number;
     manipulative: boolean;
+    known_campaign?: string | null;
+    duplicates?: string[];
+    analyst_scam?: string | null;
   };
+}
+
+export interface ScamRisk {
+  score: number;
+  level: 'low' | 'elevated' | 'high';
+  label: string;
+  factors: { key: string; weight: number; label: string; detail: string }[];
 }
 
 export interface MaterialRow {
@@ -51,7 +65,8 @@ export interface PairView {
 }
 
 export interface Assignment {
-  decision: 'known_campaign' | 'related' | 'new_pattern';
+  decision: 'known_campaign' | 'related' | 'new_pattern' | 'duplicate';
+  duplicates?: string[];
   campaign: string | null;
   family: string | null;
   explanation: string;
@@ -98,7 +113,19 @@ export interface Features {
   brands: Record<string, number>;
   topics: Record<string, number>;
   manipulation: { score: number; categories: Record<string, string[]>; exclamations: number; caps_ratio: number; method: string };
-  narrative_llm?: { narracja?: string; manipulacja?: number; techniki?: string[]; wezwanie_do_dzialania?: string; model?: string };
+  narrative_llm?: {
+    narracja?: string;
+    streszczenie?: string;
+    schemat?: string;
+    produkt?: string;
+    obietnica?: string;
+    podszywa_sie_pod?: string[];
+    oszustwo?: number;
+    manipulacja?: number;
+    techniki?: string[];
+    wezwanie_do_dzialania?: string;
+    model?: string;
+  };
   ai: { declared: boolean; declarations: { source: string; text: string }[]; image_scores?: { src: string; p: number }[] };
   faces: { src: string; bbox: number[]; score: number; match: { slug: string; sim: number } | null }[];
   images: { src: string; kind: string; w: number; h: number; sha1: string; phash: string }[];
@@ -238,4 +265,6 @@ export const MANIPULATION_PL: Record<string, string> = {
   fear_shock: 'strach / szok',
   authority_social_proof: 'autorytet / dowód społeczny',
   official_benefit_bait: 'fałszywy program rządowy / dopłata',
+  false_endorsement: 'fałszywa rekomendacja osoby publicznej',
+  media_impersonation: 'podszywanie się pod medium',
 };

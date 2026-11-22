@@ -25,11 +25,13 @@
         <h3>Lampka ryzyka</h3>
         <app-lamp [lamp]="v.lamp" />
         <div class="row small" style="margin-top: 12px">
-          <span class="muted">Ocena analityka (uczy detektor AI):</span>
-          <button class="btn ghost" (click)="label(true)" [class.active]="v.labels['ai'] === 'true'">to jest AI</button>
-          <button class="btn ghost" (click)="label(false)">to nie AI</button>
-          @if (v.labels['ai']) { <span class="chip">oznaczone: {{ v.labels['ai'] === 'true' ? 'AI' : 'nie AI' }}</span> }
+          <span class="muted">Ocena analityka:</span>
+          <button class="btn ghost" (click)="label({ scam: true })" [class.active]="v.labels['scam'] === 'true'">to oszustwo</button>
+          <button class="btn ghost" (click)="label({ scam: false })" [class.active]="v.labels['scam'] === 'false'">to nie oszustwo</button>
+          <button class="btn ghost" (click)="label({ ai: true })" [class.active]="v.labels['ai'] === 'true'">to jest AI</button>
+          <button class="btn ghost" (click)="label({ ai: false })" [class.active]="v.labels['ai'] === 'false'">to nie AI</button>
         </div>
+        <div class="small muted">„To oszustwo” dodaje materiał do bazy znanych oszustw (kolejne warianty dostaną czerwoną lampkę). Oceny AI uczą detektor AI.</div>
       </section>
 
       @if (v.assignment; as a) {
@@ -71,6 +73,7 @@
           <dt>URL wejścia</dt><dd><code>{{ f.summary.landing_url }}</code></dd>
           <dt>Domeny docelowe</dt><dd><code>{{ f.summary.landing_domains.join(', ') || '-' }}</code></dd>
           <dt>Domeny pomocnicze</dt><dd><code>{{ f.summary.aux_domains.join(', ') || '-' }}</code></dd>
+          <dt>Domeny w treści</dt><dd><code>{{ textDomains().join(', ') || '-' }}</code></dd>
           <dt>Serwery</dt><dd class="small">{{ f.infra.servers.join(' · ') || '-' }}</dd>
           <dt>Adresy IP</dt>
           <dd>
@@ -126,8 +129,17 @@
             }
           </dd>
           @if (f.narrative_llm; as n) {
-            <dt>LLM ({{ n.model }})</dt>
-            <dd class="small">{{ n.narracja }} <br /><span class="muted">techniki: {{ n.techniki?.join(', ') }}; CTA: {{ n.wezwanie_do_dzialania }}</span></dd>
+            <dt>Analiza LLM</dt>
+            <dd class="small">
+              <div>{{ n.streszczenie || n.narracja }}</div>
+              <div><span class="chip accent">{{ n.schemat }}</span> ocena oszustwa {{ n.oszustwo | number: '1.2-2' }}, manipulacji {{ n.manipulacja | number: '1.2-2' }}</div>
+              @if (n.produkt) { <div>produkt / platforma: <b>{{ n.produkt }}</b></div> }
+              @if (n.obietnica) { <div>obietnica: {{ n.obietnica }}</div> }
+              @if (n.podszywa_sie_pod?.length) { <div>podszywa się pod: {{ n.podszywa_sie_pod?.join(', ') }}</div> }
+              @if (n.wezwanie_do_dzialania) { <div>wezwanie: {{ n.wezwanie_do_dzialania }}</div> }
+              @if (n.techniki?.length) { <div class="muted">techniki: {{ n.techniki?.join(', ') }}</div> }
+              <div class="muted">model: {{ n.model }}</div>
+            </dd>
           }
         </dl>
         @if (f.text.headings.length) {

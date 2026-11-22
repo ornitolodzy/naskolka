@@ -19,6 +19,7 @@ FAMILY_THRESHOLD = 0.30
 FEATURES: dict[str, tuple[str, float, str]] = {
     "domain": ("infrastruktura", 0.97, "ta sama domena docelowa"),
     "aux_domain": ("infrastruktura", 0.80, "wspólna domena pomocnicza (tracker, API, CDN operatora)"),
+    "text_domain": ("infrastruktura", 0.90, "ta sama domena podana w treści (napis na grafice, tekst, mowa)"),
     "ip": ("infrastruktura", 0.70, "ten sam adres IP serwera (poza wspólnym CDN)"),
     "ip_c": ("infrastruktura", 0.20, "ta sama podsieć /24"),
     "hosting": ("infrastruktura", 0.02, "ten sam dostawca CDN"),
@@ -71,7 +72,11 @@ FEATURES: dict[str, tuple[str, float, str]] = {
     "person": ("osoby i marki", 0.35, "ta sama osoba publiczna"),
     "brand": ("osoby i marki", 0.10, "ta sama marka / podszywanie się pod ten sam podmiot"),
     "topic": ("narracja", 0.15, "ta sama kategoria narracji"),
+    "scheme": ("narracja", 0.15, "ten sam schemat oszustwa (ocena LLM)"),
+    "product": ("treść", 0.60, "ta sama nazwa produktu lub platformy (ekstrakcja LLM)"),
 }
+
+HARD_CHANNELS = {"infrastruktura", "śledzenie", "kod strony", "treść", "wizualne"}
 
 CHANNEL_CAP = {
     "infrastruktura": 0.97,
@@ -213,6 +218,12 @@ def _pair(a, b, fa, fb, df, n, text_cos, img_index) -> Pair:
                 continue
             shown = person_info(v)["name"] if fname == "person" else v
             ev.append(Evidence(channel, fname, str(shown)[:160], w, f"{label} (występuje w {df[fname][v]} mat.)"))
+
+    for x, y in ((ta, tb), (tb, ta)):
+        for d in set(x.get("text_domain") or {}) & (set(y.get("domain") or {}) | set(y.get("aux_domain") or {})):
+            w = 0.90 * rarity(df["text_domain"][d] + df["domain"][d] + df["aux_domain"][d], n)
+            ev.append(Evidence("infrastruktura", "text_domain", d, w,
+                               "domena podana w treści jednego materiału to domena strony drugiego"))
 
     if text_cos >= 0.25:
         w = min(0.9, (text_cos - 0.25) / 0.55 * 0.9)
@@ -371,12 +382,19 @@ def _campaign_profile(cid, members, pairs, feats, df, n) -> dict:
     }
 
 
-def assign(model: Model, mid: str) -> dict:
+def assign(model: Model, mid: str, duplicates: set[str] | None = None) -> dict:
+    duplicates = duplicates or set()
     neigh = model.neighbours(mid, k=5)
     cid = model.material_campaign.get(mid)
     camp = next((c for c in model.campaigns if c["id"] == cid), None)
     best = neigh[0] if neigh else None
-    if camp and camp["size"] > 1:
+    others = set(camp["members"]) - {mid} if camp else set()
+    if duplicates and others and others <= duplicates:
+        decision = "duplicate"
+        text = (f"To ponowne zgłoszenie tego samego materiału ({', '.join(sorted(duplicates))}): ten sam adres "
+                f"lub identyczne pliki. Poza duplikatami materiał nie pasuje do żadnej znanej kampanii.")
+        camp = None
+    elif camp and camp["size"] > 1:
         decision = "known_campaign"
         text = f"Materiał należy do kampanii {cid} ({camp['name']}), razem z {camp['size'] - 1} innymi materiałami."
     elif best and best.score >= FAMILY_THRESHOLD:
@@ -389,6 +407,7 @@ def assign(model: Model, mid: str) -> dict:
         text = "Materiał nie pasuje do żadnej znanej kampanii. To potencjalnie nowy wzorzec działania."
     return {
         "decision": decision,
+        "duplicates": sorted(duplicates),
         "campaign": cid if camp and camp["size"] > 1 else None,
         "family": camp.get("family") if camp else None,
         "explanation": text,

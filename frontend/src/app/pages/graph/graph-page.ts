@@ -17,7 +17,7 @@ import { GraphData, PairView } from '../../core/models';
 import { PairEvidence } from '../../shared/pair-evidence';
 
 const PALETTE = ['#6e3b2b', '#2f6f8f', '#7a8f2f', '#8f2f6f', '#b5762b', '#2f8f6a', '#5b4fa3', '#a33f3f', '#3f5aa3', '#6b6b2f'];
-const LAMP_BORDER = ['#3f7a3a', '#d9a514', '#c0392b', '#7b2d8b', '#111111'];
+const LAMP_BORDER = ['#3f7a3a', '#d9a514', '#e07a10', '#c0392b'];
 
 @Component({
   selector: 'app-graph-page',

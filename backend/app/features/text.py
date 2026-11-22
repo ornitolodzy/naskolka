@@ -72,7 +72,37 @@ def topic_scores(folded: str) -> dict[str, float]:
     return dict(sorted(scores.items(), key=lambda kv: -kv[1]))
 
 
-def manipulation_analysis(text: str) -> dict:
+CATEGORY_WEIGHT = {
+    "unrealistic_gain": 0.35,
+    "miracle_health": 0.35,
+    "official_benefit_bait": 0.30,
+    "secrecy_conspiracy": 0.30,
+    "urgency": 0.25,
+    "fear_shock": 0.22,
+    "authority_social_proof": 0.18,
+    "false_endorsement": 0.45,
+    "media_impersonation": 0.30,
+}
+BAIT_TOPICS = {"investment": "inwestycje", "health": "zdrowie", "gambling": "hazard",
+               "giveaway_lottery": "loteria", "government_benefit": "dopłaty"}
+MEDIA_BRANDS = {"gazeta.pl", "tvn24", "tvn", "polsat", "onet", "wp.pl", "interia", "rmf", "tvp", "money.pl",
+                "business_insider", "forbes", "bankier", "rzeczpospolita", "super_express", "fakt"}
+
+
+def _context_categories(persons: dict | None, topics: dict | None, brands: dict | None) -> dict[str, list[str]]:
+    bait = [BAIT_TOPICS[t] for t, s in (topics or {}).items() if t in BAIT_TOPICS and s >= 0.25]
+    out: dict[str, list[str]] = {}
+    strong = [p for p, src in (persons or {}).items() if {"face", "image_name"} & set(src or [])]
+    if strong and bait:
+        out["false_endorsement"] = [f"{person_info(p)['name']} + {bait[0]}" for p in strong[:3]]
+    media = sorted(set(brands or {}) & MEDIA_BRANDS)
+    if media and bait:
+        out["media_impersonation"] = [f"{m} + {bait[0]}" for m in media[:3]]
+    return out
+
+
+def manipulation_analysis(text: str, persons: dict | None = None, topics: dict | None = None,
+                          brands: dict | None = None) -> dict:
     folded = fold(text)
     cats: dict[str, list[str]] = {}
     for cat, pats in _lexicons()["manipulation"].items():
@@ -86,17 +116,25 @@ def manipulation_analysis(text: str) -> dict:
                     break
         if found:
             cats[cat] = found
+    cats.update(_context_categories(persons, topics, brands))
     letters = [c for c in text if c.isalpha()]
     caps_ratio = (sum(c.isupper() for c in letters) / len(letters)) if letters else 0.0
     exclam = text.count("!")
     words = max(len(folded.split()), 1)
-    breadth = len(cats) / 7
-    density = min(1.0, sum(len(v) for v in cats.values()) / 12)
     style = min(1.0, (exclam * 100 / words) / 3) * 0.5 + min(1.0, max(0.0, caps_ratio - 0.15) * 4) * 0.5
-    score = round(min(1.0, 0.5 * breadth + 0.35 * density + 0.15 * style), 3)
+    keep = 1.0
+    contributions = {}
+    for cat, hits in cats.items():
+        p = min(0.6, CATEGORY_WEIGHT.get(cat, 0.2) * (1 + 0.15 * (len(hits) - 1)))
+        contributions[cat] = round(p, 3)
+        keep *= 1 - p
+    if cats:
+        keep *= 1 - 0.1 * style
+    score = round(1 - keep, 3)
     return {
         "score": score,
         "categories": cats,
+        "contributions": contributions,
         "exclamations": exclam,
         "caps_ratio": round(caps_ratio, 3),
         "method": "lexicon",

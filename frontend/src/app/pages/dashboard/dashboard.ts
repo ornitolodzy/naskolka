@@ -24,7 +24,8 @@ import { LampView } from '../../shared/lamp';
       <div class="card"><div class="stat">{{ multi().length }}</div><div class="stat-label">kampanii (≥ 2 materiały)</div></div>
       <div class="card"><div class="stat">{{ singles().length }}</div><div class="stat-label">pojedyncze wzorce</div></div>
       <div class="card"><div class="stat">{{ families().length }}</div><div class="stat-label">rodziny kampanii</div></div>
-      <div class="card"><div class="stat">{{ highRisk() }}</div><div class="stat-label">lampki ≥ czerwona</div></div>
+      <div class="card"><div class="stat">{{ redLamps() }}</div><div class="stat-label">w znanych kampaniach oszustw</div></div>
+      <div class="card"><div class="stat">{{ orangeLamps() }}</div><div class="stat-label">wysokie ryzyko, nowe wzorce</div></div>
     </div>
 
     @if (!loading() && materials().length === 0) {
@@ -118,7 +119,8 @@ export class Dashboard {
   protected readonly importing = signal(false);
   protected readonly multi = computed(() => this.campaigns().filter((c) => c.size > 1));
   protected readonly singles = computed(() => this.campaigns().filter((c) => c.size === 1));
-  protected readonly highRisk = computed(() => this.materials().filter((m) => (m.lamp?.level ?? 0) >= 2).length);
+  protected readonly redLamps = computed(() => this.materials().filter((m) => m.lamp?.level === 3).length);
+  protected readonly orangeLamps = computed(() => this.materials().filter((m) => m.lamp?.level === 2).length);
   protected readonly pending = computed(() => this.materials().filter((m) => m.status === 'pending' || m.status === 'processing').length);
   private timer?: ReturnType<typeof setTimeout>;
 

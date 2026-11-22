@@ -12,8 +12,7 @@
   --fk-lamp-green: #3f7a3a;
   --fk-lamp-yellow: #d9a514;
   --fk-lamp-red: #c0392b;
-  --fk-lamp-purple: #7b2d8b;
-  --fk-lamp-black: #111;
+  --fk-lamp-orange: #e07a10;
 
   --fk-radius: 14px;
   --fk-shadow: 0 1px 2px rgb(31 30 30 / 0.05), 0 8px 20px -10px rgb(110 59 43 / 0.25);
@@ -114,8 +113,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
 .lamp-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; }
 .lamp-0 { background: var(--fk-lamp-green); }
 .lamp-1 { background: var(--fk-lamp-yellow); }
-.lamp-2 { background: var(--fk-lamp-red); }
-.lamp-3 { background: var(--fk-lamp-purple); }
-.lamp-4 { background: var(--fk-lamp-black); box-shadow: 0 0 0 2px var(--fk-lamp-red); }
+.lamp-2 { background: var(--fk-lamp-orange); }
+.lamp-3 { background: var(--fk-lamp-red); }
 
 pre.body { white-space: pre-wrap; max-height: 260px; overflow: auto; background: var(--fk-surface-2); padding: 12px; border-radius: 8px; font-size: 13px; }

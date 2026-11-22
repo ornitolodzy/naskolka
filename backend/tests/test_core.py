@@ -55,6 +55,85 @@ def test_transcript_style_manipulation():
     assert "fear_shock" not in manipulation_analysis("Producent wózków inwalidzkich otworzył fabrykę")["categories"]
 
 
+def test_ocr_glued_caps_gain_phrases():
+    m = manipulation_analysis("DAM CI 100000 ZL JESLINIEZOSTANIESZ MILIONEREMDZIEKI TEJPLATFORMIE. ZARABIAC DZISIAJ TYGODNIOWO")
+    assert len(m["categories"]["unrealistic_gain"]) >= 3
+
+
+CELEBRITY_POST = ("Platforma Nowoczesna money.pl DAM CI 100000 ZL JESLINIEZOSTANIESZ MILIONEREMDZIEKI TEJPLATFORMIE. "
+                  "INWESTOWANIE ZARABIAC DZISIAJ TYGODNIOWO 1.000ZL 10.000ZL CYBERGHIVE.COM Dowiedz sie wiecej")
+
+
+def _post_features(persons):
+    from app.features.infra import text_domains
+    from app.features.text import find_brands, topic_scores
+
+    folded = fold(CELEBRITY_POST)
+    topics, brands = topic_scores(folded), find_brands(folded)
+    return {
+        "persons": persons,
+        "topics": topics,
+        "brands": brands,
+        "manipulation": manipulation_analysis(CELEBRITY_POST, persons, topics, brands),
+        "tokens": {"text_domain": {d: 1 for d in text_domains(CELEBRITY_POST)}},
+        "ai": {},
+    }
+
+
+def test_celebrity_money_post_is_manipulative_and_high_scam_risk():
+    f = _post_features({"rafal-brzoska": ["face", "image_name"]})
+    assert {"false_endorsement", "media_impersonation", "unrealistic_gain"} <= set(f["manipulation"]["categories"])
+    assert f["manipulation"]["score"] >= 0.6
+    lamp = risk.assess(f, None)
+    assert lamp["level"] == 2 and lamp["color"] == "orange"
+    assert lamp["scam"]["level"] == "high"
+    assert {"false_endorsement", "money_promise", "text_domain"} <= {x["key"] for x in lamp["scam"]["factors"]}
+
+    plain = _post_features({})
+    assert "false_endorsement" not in plain["manipulation"]["categories"]
+    assert risk.assess(plain, None)["scam"]["score"] < lamp["scam"]["score"]
+
+
+def test_neutral_news_stays_low():
+    from app.features.text import find_brands, topic_scores
+
+    for text in (
+        "Rafał Brzoska otworzył nowe centrum logistyczne InPost w Krakowie, informuje money.pl.",
+        "Rafał Brzoska zainwestował w nową spółkę. Zysk InPost wzrósł o 10%, a akcje zyskały na giełdzie.",
+    ):
+        folded = fold(text)
+        persons, topics = {"rafal-brzoska": ["text"]}, topic_scores(folded)
+        m = manipulation_analysis(text, persons, topics, find_brands(folded))
+        assert m["score"] < 0.4, text
+        f = {"persons": persons, "topics": topics, "manipulation": m}
+        assert risk.scam_assessment(f)["level"] == "low", text
+
+
+def test_text_domains_skip_media_files_and_neutral_hosts():
+    from app.features.infra import is_public_cdn_host, text_domains
+
+    assert text_domains("Wejdź na CYBERGHIVE.COM albo www.zysk-teraz.online, plik logo.png, za money.pl i facebook.com") == [
+        "cyberghive.com", "zysk-teraz.online"]
+    assert is_public_cdn_host("demagog.org.pl")
+
+
+def test_reupload_is_flagged_as_duplicate():
+    model = correlate.Model(ids=["a", "b"], pairs={}, campaigns=[{"id": "K01", "members": ["a", "b"], "size": 2, "name": "x"}],
+                            families=[], material_campaign={"a": "K01", "b": "K01"})
+    out = correlate.assign(model, "b", {"a"})
+    assert out["decision"] == "duplicate" and out["campaign"] is None
+    assert correlate.assign(model, "b", set())["decision"] == "known_campaign"
+
+
+def test_direct_image_url_is_saved_as_artifact(tmp_path):
+    import httpx
+
+    r = httpx.Response(200, headers={"content-type": "image/png"}, content=b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+    Service._save_media("https://example.org/wp-content/uploads/post", r, tmp_path)
+    Service._save_media("https://example.org/a.js", httpx.Response(200, headers={"content-type": "text/javascript"}, content=b"x"), tmp_path)
+    assert [p.name for p in tmp_path.iterdir()] == ["post.png"]
+
+
 def _fake_samples(rng, n, label, source, shift):
     import numpy as np
 
@@ -124,19 +203,43 @@ def test_hard_evidence_links_and_explains():
     assert correlate.assign(model, "c")["decision"] == "new_pattern"
 
 
-def test_risk_escalation_chain():
+def test_lamp_levels_follow_campaign_logic():
     base = {"ai": {"declared": False}, "persons": {}, "manipulation": {"score": 0.0}}
     assert risk.assess(base, None)["level"] == 0
-    declared = base | {"ai": {"declared": True, "declarations": [{"source": "ocr:x.png", "text": "ai"}]}}
-    assert risk.assess(declared, None)["level"] == 1
-    assert risk.assess(base, 0.9, detector_reliable=True)["level"] == 2
-    assert risk.assess(base, 0.9, detector_reliable=False)["level"] == 0
+    assert risk.assess(base, None, context={"reported": True})["level"] == 1
+    assert risk.assess(base, None, context={"scam_related": ["ds-1"]})["level"] == 1
+    scam = _post_features({"rafal-brzoska": ["face"]})
+    assert risk.assess(scam, None)["level"] == 2
+    assert risk.assess(scam, None, context={"scam_campaign": {"id": "K01", "peers": ["ds-1"]}})["level"] == 3
+    assert risk.assess(scam, None, {"scam": "false"})["level"] == 0
+    assert risk.assess(base, None, {"scam": "true"})["level"] == 2
+
+
+def test_ai_is_an_attribute_and_deepfake_factor():
+    base = {"ai": {"declared": False}, "persons": {}, "manipulation": {"score": 0.0}}
+    assert risk.assess(base, 0.9, detector_reliable=False)["ai"]["status"] == "possible"
+    assert risk.assess(base, 0.9, detector_reliable=True)["ai"]["status"] == "detected"
     prop = [{"src": "a.jpg", "material": "ds-61", "declared_src": "b.jpg", "distance": 2}]
-    assert risk.assess(base, None, propagated=prop)["level"] == 2
-    celeb = declared | {"persons": {"monika-olejnik": ["face"]}}
-    assert risk.assess(celeb, None)["level"] == 3
-    assert risk.assess(celeb | {"manipulation": {"score": 0.7}}, None)["level"] == 4
-    assert risk.assess(base | {"persons": {"x": ["text"]}, "manipulation": {"score": 0.9}}, None)["level"] == 0
+    assert risk.assess(base, None, propagated=prop)["ai"]["detected"]
+    celeb = base | {"ai": {"declared": True, "declarations": [{"source": "ocr:x.png", "text": "ai"}]},
+                    "persons": {"monika-olejnik": ["face"]}}
+    lamp = risk.assess(celeb, None)
+    assert lamp["ai"]["status"] == "declared"
+    assert "deepfake" in {f["key"] for f in lamp["scam"]["factors"]}
+    assert risk.assess(base, 0.9, {"ai": "false"}, detector_reliable=True)["ai"]["detected"] is False
+
+
+def test_llm_output_is_normalized():
+    from app import llm
+
+    out = llm._normalize({"schemat": "Fałszywa platforma inwestycyjna", "oszustwo": "1.4", "manipulacja": None,
+                          "produkt": "brak", "techniki": "presja"})
+    assert out["schemat"] == llm.SCHEMES[0]
+    assert out["oszustwo"] == 1.0 and out["manipulacja"] == 0.0
+    assert out["produkt"] == "" and out["techniki"] == ["presja"]
+    assert llm._normalize({"type": "object", "properties": {}}) is None
+    assert llm._normalize({"schemat": "x", "produkt": "nieznany produkt do leczenia bólu pleców"})["produkt"] == ""
+    assert llm._normalize({"schemat": "x", "produkt": "Cyber Ghive"})["produkt"] == "Cyber Ghive"
 
 
 def test_har_parsing(tmp_path):

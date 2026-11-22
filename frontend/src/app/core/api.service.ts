@@ -29,8 +29,8 @@ export class Api {
     return this.http.post(`${this.base}/materials/${encodeURIComponent(id)}/reprocess`, {});
   }
 
-  label(id: string, ai: boolean): Observable<Record<string, string>> {
-    return this.http.post<Record<string, string>>(`${this.base}/materials/${encodeURIComponent(id)}/label`, { ai });
+  label(id: string, body: { ai?: boolean; scam?: boolean }): Observable<Record<string, string>> {
+    return this.http.post<Record<string, string>>(`${this.base}/materials/${encodeURIComponent(id)}/label`, body);
   }
 
   artifactUrl(id: string, index: number): string {

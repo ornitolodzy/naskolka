@@ -58,9 +58,41 @@ TRACKER_PATTERNS: dict[str, re.Pattern[str]] = {
 _EMAIL_NOISE = re.compile(r"(\.png|\.jpg|\.webp|\.svg|example\.|sentry|wixpress|@2x|@3x|mhtml\.blink)", re.I)
 
 
+NEUTRAL_DOMAINS = {
+    "demagog.org.pl", "fakenews.pl", "konkret24.tvn24.pl", "afp.com", "cert.pl", "nask.pl", "gov.pl",
+    "sprawdzam.afp.com", "fakehunter.pap.pl", "web.archive.org", "archive.org", "archive.ph", "imgur.com",
+    "wikipedia.org", "wikimedia.org",
+}
+WELL_KNOWN_DOMAINS = NEUTRAL_DOMAINS | {
+    "money.pl", "onet.pl", "wp.pl", "interia.pl", "gazeta.pl", "tvn24.pl", "polsatnews.pl", "tvp.info", "tvp.pl",
+    "rmf24.pl", "bankier.pl", "forbes.pl", "businessinsider.com.pl", "rp.pl", "fakt.pl", "se.pl",
+    "facebook.com", "fb.com", "instagram.com", "youtube.com", "youtu.be", "google.com", "google.pl", "x.com",
+    "twitter.com", "tiktok.com", "apple.com", "microsoft.com", "whatsapp.com", "t.me", "telegram.org",
+}
+_NOT_TLD = {"zip", "mov", "app", "png", "jpg", "js", "css", "html", "php", "json", "py", "md", "mp4", "txt"}
+_DOMAIN_RE = re.compile(r"(?<![@\w.-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.){1,3}[a-z]{2,12})(?![\w-])")
+
+
 def is_public_cdn_host(host: str) -> bool:
     host = (host or "").lower()
-    return host in PUBLIC_HOSTS or host.endswith(PUBLIC_SUFFIXES)
+    if host in PUBLIC_HOSTS or host.endswith(PUBLIC_SUFFIXES):
+        return True
+    return any(host == d or host.endswith("." + d) for d in NEUTRAL_DOMAINS)
+
+
+def text_domains(text: str, limit: int = 20) -> list[str]:
+    out: list[str] = []
+    for m in _DOMAIN_RE.finditer((text or "").lower()):
+        ext = _extract(m.group(1))
+        if not ext.suffix or not ext.domain or len(ext.domain) < 3 or ext.suffix in _NOT_TLD:
+            continue
+        rd = f"{ext.domain}.{ext.suffix}"
+        if rd in WELL_KNOWN_DOMAINS or is_public_cdn_host(m.group(1)) or rd in out:
+            continue
+        out.append(rd)
+        if len(out) >= limit:
+            break
+    return out
 
 
 def registrable_domain(host: str) -> str:

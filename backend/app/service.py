@@ -44,6 +44,7 @@ class Service:
         self.pool = ThreadPoolExecutor(max_workers=int(os.getenv("FK_WORKERS", "2")))
         self._model: correlate.Model | None = None
         self._model_version = -1
+        self._index_cache: dict | None = None
         self._model_lock = threading.Lock()
         self._gallery: faces.Gallery | None = None
         self._gallery_lock = threading.Lock()
@@ -121,13 +122,15 @@ class Service:
                 nar = llm.analyze_narrative(feats["summary"]["title"], feats["text"]["body"])
                 if nar:
                     feats["narrative_llm"] = nar
-                    try:
-                        llm_score = float(nar.get("manipulacja", 0))
-                        lex = feats["manipulation"]["score"]
-                        feats["manipulation"]["score"] = round(max(lex, 0.5 * lex + 0.5 * llm_score), 3)
-                        feats["manipulation"]["method"] = "lexicon+llm"
-                    except (TypeError, ValueError):
-                        pass
+                    lex = feats["manipulation"]["score"]
+                    feats["manipulation"]["score"] = round(max(lex, 0.5 * lex + 0.5 * nar["manipulacja"]), 3)
+                    feats["manipulation"]["method"] = "lexicon+llm"
+                    tokens = feats.setdefault("tokens", {})
+                    product = re.sub(r"[^a-z0-9]", "", fold(nar.get("produkt") or ""))
+                    if len(product) >= 4:
+                        tokens.setdefault("product", {})[product] = 1
+                    if nar["schemat"] not in {"inne oszustwo", "brak oszustwa"}:
+                        tokens.setdefault("scheme", {})[nar["schemat"]] = 1
             self.store.save_features(material_id, feats)
         except Exception as exc:
             log.exception("processing %s failed", material_id)
@@ -315,7 +318,61 @@ class Service:
         else:
             prop = self.propagated(row, declared if declared is not None else self._declared_images())
         score = detector.score_vectors((f.get("ai") or {}).get("vectors") or [])
-        return risk.assess(f, score, labels.get(row["id"]), detector.reliable, prop, detector.trained)
+        return risk.assess(f, score, labels.get(row["id"]), detector.reliable, prop, detector.trained,
+                           self.scam_context(row["id"]))
+
+    def _index(self) -> dict:
+        with self._model_lock:
+            if self._index_cache and self._index_cache["version"] == self.store.version:
+                return self._index_cache
+            version = self.store.version
+        rows = self.store.all()
+        by_url: dict[str, set[str]] = {}
+        by_images: dict[frozenset, set[str]] = {}
+        for r in rows:
+            if r.get("input_url"):
+                by_url.setdefault(r["input_url"].strip().lower(), set()).add(r["id"])
+            imgs = frozenset((((r.get("features") or {}).get("tokens") or {}).get("image_sha1") or {}))
+            if imgs:
+                by_images.setdefault(imgs, set()).add(r["id"])
+        dups: dict[str, set[str]] = {}
+        for group in list(by_url.values()) + list(by_images.values()):
+            for mid in group:
+                dups.setdefault(mid, set()).update(group - {mid})
+        labels = self.store.labels()
+        reported = {r["id"] for r in rows if r["source"] == "dataset"}
+        reported |= {m for m, lab in labels.items() if lab.get("scam") == "true"}
+        reported -= {m for m, lab in labels.items() if lab.get("scam") == "false"}
+        idx = {"version": version, "reported": reported, "dups": dups}
+        self._index_cache = idx
+        return idx
+
+    def duplicates(self, mid: str) -> set[str]:
+        return self._index()["dups"].get(mid, set())
+
+    def scam_context(self, mid: str) -> dict:
+        idx = self._index()
+        model = self.model()
+        dup = idx["dups"].get(mid, set())
+        known = lambda m: m != mid and m not in dup and m in idx["reported"]
+        ctx: dict = {"reported": mid in idx["reported"], "duplicates": dup}
+        dup_known = sorted(d for d in dup if d in idx["reported"])
+        if dup_known:
+            ctx["scam_campaign"] = {"id": model.material_campaign.get(dup_known[0]), "peers": dup_known}
+        cid = model.material_campaign.get(mid)
+        camp = next((c for c in model.campaigns if c["id"] == cid), None)
+        peers = [m for m in (camp or {}).get("members", []) if known(m)]
+        if peers:
+            ctx["scam_campaign"] = {"id": cid, "peers": peers}
+        related = []
+        for p in model.neighbours(mid, k=10):
+            other = p.b if p.a == mid else p.a
+            hard = max((v for c, v in p.channels.items() if c in correlate.HARD_CHANNELS), default=0.0)
+            if known(other) and p.score >= correlate.FAMILY_THRESHOLD and hard >= 0.3:
+                related.append(other)
+        if related:
+            ctx["scam_related"] = related
+        return ctx
 
     def material_list(self) -> list[dict]:
         model = self.model()
@@ -378,7 +435,7 @@ class Service:
             "features": f or None,
             "labels": labels.get(mid, {}),
             "lamp": self.lamp(row, labels),
-            "assignment": correlate.assign(model, mid) if row.get("features") else None,
+            "assignment": correlate.assign(model, mid, self.duplicates(mid)) if row.get("features") else None,
         }
 
     def artifact_path(self, mid: str, index: int) -> str | None:
