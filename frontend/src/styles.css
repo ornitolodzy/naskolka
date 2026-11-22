@@ -105,10 +105,11 @@ button, input, select, textarea { font: inherit; }
 /* --- Pasek nawigacji --- */
 .topbar {
   position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 12px 28px;
   background: var(--naskolka-navy-black); color: var(--naskolka-text-on-dark);
 }
+.topbar-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.menu-toggle, .fab { display: none; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--naskolka-text-on-dark); }
 .brand:hover { color: var(--naskolka-text-on-dark); text-decoration: none; }
 .brand-mark { width: 28px; height: 28px; flex: none; }
@@ -160,6 +161,67 @@ button, input, select, textarea { font: inherit; }
   view-transition-name: footer;
 }
 
+/* --- Pływający przycisk „Nowa analiza” (tylko mobile) --- */
+.fab {
+  position: fixed; right: 16px; bottom: 14px; z-index: 11;
+  align-items: center; justify-content: center;
+  width: 56px; height: 56px; border-radius: var(--radius-md);
+  background: var(--naskolka-accent-primary); color: var(--naskolka-text-on-dark);
+  box-shadow: 0 10px 24px -8px rgb(163 59 36 / 0.65), 0 2px 6px rgb(15 22 38 / 0.18);
+  transition: background-color 0.2s ease, transform 0.15s ease;
+  view-transition-name: fab;
+}
+.fab svg { width: 26px; height: 26px; }
+.fab span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.fab:hover { background: var(--naskolka-accent-primary-hover); color: var(--naskolka-text-on-dark); text-decoration: none; }
+.fab:active { transform: scale(0.94); }
+
+/* ==========================================================================
+   MOBILE (≤ 760px): logo na środku, menu rozwijane strzałką, FAB zamiast CTA
+   ========================================================================== */
+@media (max-width: 760px) {
+  .topbar { padding: 12px 16px 0; }
+  .topbar-row { flex-direction: column; gap: 0; }
+  .brand { justify-content: center; }
+  .brand small { display: none; }
+
+  .topbar nav {
+    flex-direction: column; flex-wrap: nowrap; gap: 4px; width: 100%;
+    max-height: 0; overflow: hidden; visibility: hidden; opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.2s ease, margin 0.3s ease, visibility 0s linear 0.3s;
+  }
+  .topbar.open nav {
+    max-height: 240px; visibility: visible; opacity: 1; margin-top: 12px;
+    transition: max-height 0.3s ease, opacity 0.25s ease 0.05s, margin 0.3s ease, visibility 0s;
+  }
+  .topbar nav a { padding: 12px 16px; font-size: 15px; text-align: center; }
+  .topbar nav a:hover { transform: none; }
+  .topbar nav a::after { left: 40%; right: 40%; bottom: 6px; }
+  .topbar nav a.cta { display: none; }
+
+  .menu-toggle {
+    display: flex; align-items: center; justify-content: center;
+    width: 48px; height: 28px; margin: 4px auto 0; padding: 0;
+    border: none; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background: transparent; color: var(--naskolka-border-subtle); cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .menu-toggle:hover { color: var(--naskolka-text-on-dark); background: var(--naskolka-accent-secondary-hover); }
+  .menu-toggle svg { width: 22px; height: 22px; transition: transform 0.3s ease; }
+  .topbar.open .menu-toggle svg { transform: rotate(180deg); }
+
+  .fab { display: inline-flex; }
+
+  .page { padding: 18px 16px 104px; }
+  h1 { font-size: 26px; }
+  h2 { font-size: 21px; }
+  .stat { font-size: 28px; }
+
+  /* Szerokie tabele przewijają się poziomo zamiast rozpychać stronę */
+  table.tbl { display: block; overflow-x: auto; white-space: nowrap; }
+  .evidence li { grid-template-columns: 84px 1fr 52px; }
+}
+
 /* --- Karuzela między zakładkami (View Transitions API) ---
    Baner zostaje w miejscu, przesuwa się tylko treść pod nim. Kierunek
    (data-nav-dir) ustawia core/nav-transition.ts wg kolejności zakładek. */
@@ -172,9 +234,13 @@ button, input, select, textarea { font: inherit; }
 ::view-transition-new(topbar),
 ::view-transition-group(footer),
 ::view-transition-old(footer),
-::view-transition-new(footer) { animation: none; }
+::view-transition-new(footer),
+::view-transition-group(fab),
+::view-transition-old(fab),
+::view-transition-new(fab) { animation: none; }
 ::view-transition-group(topbar),
-::view-transition-group(footer) { z-index: 2; }
+::view-transition-group(footer),
+::view-transition-group(fab) { z-index: 2; }
 ::view-transition-group(page) { animation-duration: 0.38s; }
 ::view-transition-old(page),
 ::view-transition-new(page) {
@@ -220,9 +286,9 @@ button, input, select, textarea { font: inherit; }
   box-shadow: var(--naskolka-shadow);
 }
 .grid { display: grid; gap: 16px; }
-.grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
-.grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-.grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); }
+.grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
+.grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .spread { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .muted { color: var(--naskolka-text-secondary); }

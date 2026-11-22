@@ -1,7 +1,7 @@
 import { ActivatedRouteSnapshot, ViewTransitionInfo } from '@angular/router';
 
 /** Kolejność zakładek w banerze (od lewej). Trasy spoza menu dostają indeks za ostatnią zakładką. */
-const NAV_ORDER = ['', 'graf', 'materialy', 'analiza'];
+export const NAV_ORDER = ['', 'graf', 'materialy', 'analiza'];
 /** Zakładka otwierana jak arkusz od dołu, a nie w karuzeli. */
 const SHEET = NAV_ORDER.indexOf('analiza');
 

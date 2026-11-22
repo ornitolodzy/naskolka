@@ -24,6 +24,7 @@ const DECISION_PL: Record<string, string> = {
     .kv { display: grid; grid-template-columns: 160px 1fr; gap: 4px 12px; font-size: 13.5px; }
     .kv dt { color: var(--naskolka-text-secondary); }
     .kv dd { margin: 0; }
+    @media (max-width: 760px) { .kv { grid-template-columns: 1fr; } .kv dd { margin-bottom: 6px; } }
     .decision { font-size: 24px; font-weight: 600; line-height: 1.3; color: var(--naskolka-text-heading); }
     .tok { display: flex; flex-wrap: wrap; gap: 4px; }
     .transcript { max-height: 280px; overflow: auto; display: grid; gap: 2px; padding: 6px 0; }
